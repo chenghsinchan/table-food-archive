@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BookOpen, CalendarDays, Check, MapPin, Pencil, Star, Trash2, X } from "lucide-react";
 import type { FoodEntry } from "@/types/food";
+import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils/cn";
 import { formatLongDate } from "@/lib/utils/date";
@@ -73,7 +74,6 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
-  const photo = currentEntry.photos[0];
   const [draft, setDraft] = useState<DraftEntry>({
     title: entry.title,
     rating: entry.rating ?? 0,
@@ -220,7 +220,7 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
           </div>
         </header>
 
-        <img src={photo.imageUrl} alt={photo.alt} className="max-h-[54dvh] w-full object-cover" />
+        <PhotoCarousel photos={currentEntry.photos} />
 
         <div className="space-y-7 px-6 py-7 sm:px-8">
           <EntryStars

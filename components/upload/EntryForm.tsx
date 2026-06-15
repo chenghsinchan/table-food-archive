@@ -136,26 +136,18 @@ export function EntryForm() {
           .upsert(tags.map((name) => ({ name })), { onConflict: "name" })
           .select("id,name");
 
-        if (tagError) {
-          throw tagError;
-        }
-
-        if (tagRows?.length) {
-          const { error: relationError } = await supabase.from("food_entry_tags").insert(
+        if (!tagError && tagRows?.length) {
+          await supabase.from("food_entry_tags").insert(
             tagRows.map((tag) => ({
               food_entry_id: entry.id,
               tag_id: tag.id
             }))
           );
-
-          if (relationError) {
-            throw relationError;
-          }
         }
       }
 
       setStatus("saved");
-      window.location.href = returnTo;
+      window.location.replace(returnTo);
     } catch (caught) {
       setStatus("idle");
       setError(caught instanceof Error ? caught.message : "Something went wrong while saving.");

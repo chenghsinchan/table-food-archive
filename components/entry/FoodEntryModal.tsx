@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BookOpen, CalendarDays, Check, Pencil, Star, Trash2, X } from "lucide-react";
 import type { FoodEntry } from "@/types/food";
+import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils/cn";
 import { formatLongDate } from "@/lib/utils/date";
@@ -67,7 +68,6 @@ function CompactStars({
 }
 
 export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntryModalProps) {
-  const photo = entry.photos[0];
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<DraftEntry>({
     title: entry.title,
@@ -204,7 +204,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
           </div>
         </header>
 
-        <img src={photo.imageUrl} alt={photo.alt} className="max-h-[54dvh] w-full object-cover" />
+        <PhotoCarousel photos={entry.photos} />
 
         <div className="space-y-7 px-6 py-7 sm:px-8">
           <CompactStars
