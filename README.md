@@ -1,6 +1,6 @@
 # TABLE
 
-TABLE is a private, image-first food archive for Cheng and Saulė. It keeps home cooking, recipes, restaurant dishes, travel food, and food memories in one calm daily place.
+TABLE is a private, image-first food archive. It keeps home cooking, recipes, restaurant dishes, travel food, and food memories in one calm daily place.
 
 The app has only three main areas:
 
