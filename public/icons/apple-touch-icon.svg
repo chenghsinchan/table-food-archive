@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="TABLE">
+  <rect width="180" height="180" fill="#000000"/>
+  <text
+    x="90"
+    y="96"
+    fill="#ffffff"
+    font-family="'Cormorant Garamond', Georgia, serif"
+    font-size="36"
+    font-weight="600"
+    letter-spacing="0"
+    text-anchor="middle"
+    dominant-baseline="middle">TABLE</text>
+</svg>

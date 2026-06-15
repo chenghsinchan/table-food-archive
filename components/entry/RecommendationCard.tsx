@@ -1,0 +1,35 @@
+import Link from "next/link";
+import type { FoodEntry } from "@/types/food";
+import { formatShortDate } from "@/lib/utils/date";
+import { entryLocation } from "@/lib/utils/entries";
+import { RatingInput } from "@/components/ui/RatingInput";
+
+type RecommendationCardProps = {
+  entry: FoodEntry;
+};
+
+export function RecommendationCard({ entry }: RecommendationCardProps) {
+  const photo = entry.photos[0];
+
+  return (
+    <Link
+      href={`/entry/${entry.id}`}
+      className="tap-scale grid overflow-hidden rounded-lg bg-white shadow-[0_18px_48px_rgba(18,21,21,0.10)] sm:grid-cols-[0.96fr_1fr]"
+    >
+      <img src={photo.imageUrl} alt={photo.alt} loading="lazy" className="h-72 w-full object-cover sm:h-full" />
+      <article className="flex min-h-72 flex-col justify-between p-5">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="truncate text-xs font-medium uppercase text-muted">
+              {entryLocation(entry)}
+            </p>
+            {entry.rating ? <RatingInput value={entry.rating} readOnly size="sm" /> : null}
+          </div>
+          <h2 className="text-3xl font-semibold leading-tight text-ink">{entry.title}</h2>
+          {entry.notes ? <p className="line-clamp-3 text-base leading-7 text-muted">{entry.notes}</p> : null}
+        </div>
+        <p className="pt-5 text-sm font-medium text-muted">Last eaten {formatShortDate(entry.entryDate)}</p>
+      </article>
+    </Link>
+  );
+}
