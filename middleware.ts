@@ -31,6 +31,7 @@ export async function middleware(request: NextRequest) {
 
   const isPublic =
     request.nextUrl.pathname.startsWith("/login") ||
+    request.nextUrl.pathname.startsWith("/auth/callback") ||
     request.nextUrl.pathname.startsWith("/manifest") ||
     request.nextUrl.pathname.startsWith("/icons") ||
     request.nextUrl.pathname.startsWith("/textures") ||

@@ -43,7 +43,7 @@ export function LoginScreen({ privateArchive }: LoginScreenProps) {
     const { error: signInError } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
       options: {
-        emailRedirectTo: `${window.location.origin}/`
+        emailRedirectTo: `${window.location.origin}/auth/callback`
       }
     });
 
