@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     template: "%s | TABLE"
   },
   description: "A private shared archive of meals, places, recipes and food memories.",
-  manifest: "/manifest.webmanifest",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -29,7 +29,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#F8F6F2"
+  themeColor: "#f7f4ef"
 };
 
 export default function RootLayout({

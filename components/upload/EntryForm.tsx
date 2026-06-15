@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Check, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadFoodPhotos } from "@/lib/supabase/storage";
@@ -25,16 +26,42 @@ const suggestedTags = [
 const entryTypes: EntryType[] = ["home", "restaurant", "travel", "recipe"];
 
 export function EntryForm() {
+  const searchParams = useSearchParams();
   const [rating, setRating] = useState(0);
   const [type, setType] = useState<EntryType>("home");
   const [wantToRecreate, setWantToRecreate] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
+  const [customTag, setCustomTag] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
+  const returnTo = safeReturnPath(searchParams.get("returnTo"));
 
   function toggleTag(tag: string) {
     setTags((current) => (current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]));
+  }
+
+  function addCustomTag() {
+    const tag = customTag.trim();
+
+    if (!tag) {
+      return;
+    }
+
+    setTags((current) => {
+      const exists = current.some((item) => item.toLowerCase() === tag.toLowerCase());
+      return exists ? current : [...current, tag];
+    });
+    setCustomTag("");
+  }
+
+  function handleCustomTagKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    addCustomTag();
   }
 
   async function saveEntry(event: React.FormEvent<HTMLFormElement>) {
@@ -128,7 +155,7 @@ export function EntryForm() {
       }
 
       setStatus("saved");
-      window.location.href = `/entry/${entry.id}`;
+      window.location.href = returnTo;
     } catch (caught) {
       setStatus("idle");
       setError(caught instanceof Error ? caught.message : "Something went wrong while saving.");
@@ -239,6 +266,27 @@ export function EntryForm() {
                   {tag}
                 </TagPill>
               ))}
+              {tags.filter((tag) => !suggestedTags.includes(tag)).map((tag) => (
+                <TagPill key={tag} active onClick={() => toggleTag(tag)}>
+                  {tag}
+                </TagPill>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={customTag}
+                onChange={(event) => setCustomTag(event.target.value)}
+                onKeyDown={handleCustomTagKeyDown}
+                placeholder="Add your own tag"
+                className="min-h-12 flex-1 rounded-lg border border-border bg-white px-4 outline-none transition focus:border-accent"
+              />
+              <button
+                type="button"
+                onClick={addCustomTag}
+                className="tap-scale min-h-12 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
+              >
+                Add
+              </button>
             </div>
           </div>
         </div>
@@ -255,4 +303,16 @@ export function EntryForm() {
       {error ? <p className="text-center text-sm leading-6 text-accent">{error}</p> : null}
     </form>
   );
+}
+
+function safeReturnPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/";
+  }
+
+  if (value.startsWith("/add") || value.startsWith("/login")) {
+    return "/";
+  }
+
+  return value;
 }
