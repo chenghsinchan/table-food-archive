@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { EntryForm } from "@/components/upload/EntryForm";
 
 export const metadata: Metadata = {
@@ -14,7 +15,9 @@ export default function AddEntryPage() {
           Add it while it is warm
         </h1>
       </header>
-      <EntryForm />
+      <Suspense>
+        <EntryForm />
+      </Suspense>
     </div>
   );
 }

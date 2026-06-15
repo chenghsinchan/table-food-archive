@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { AuthGate } from "@/components/auth/AuthGate";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { FloatingAddButton } from "@/components/navigation/FloatingAddButton";
 
@@ -15,11 +14,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh pb-28 pt-5 sm:pt-8">
-      <AuthGate>
-        <main>{children}</main>
-        <FloatingAddButton />
-        <BottomNav />
-      </AuthGate>
+      <main>{children}</main>
+      <FloatingAddButton />
+      <BottomNav />
     </div>
   );
 }

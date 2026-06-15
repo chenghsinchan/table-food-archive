@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, Save } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { uploadFoodPhotos } from "@/lib/supabase/storage";
+import { compressImageFile } from "@/lib/supabase/storage";
+import { storeLocalEntry } from "@/lib/utils/local-entry-storage";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { TagPill } from "@/components/ui/TagPill";
 import { PhotoUploader } from "@/components/upload/PhotoUploader";
-import type { EntryType } from "@/types/food";
+import type { EntryType, FoodEntry, FoodPhoto } from "@/types/food";
 
 const suggestedTags = [
   "Comfort",
@@ -81,76 +81,16 @@ export function EntryForm() {
       return;
     }
 
-    const supabase = createClient();
-
-    if (!supabase) {
-      setError("Saving is not connected in this copy yet.");
-      return;
-    }
-
     setStatus("saving");
 
     try {
-      const {
-        data: { user }
-      } = await supabase.auth.getUser();
-
-      const { data: entry, error: entryError } = await supabase
-        .from("food_entries")
-        .insert({
-          title,
-          type,
-          rating: rating || null,
-          notes: String(form.get("notes") || "").trim() || null,
-          recipe: String(form.get("recipe") || "").trim() || null,
-          restaurant_name: String(form.get("restaurant") || "").trim() || null,
-          city: String(form.get("city") || "").trim() || null,
-          country: String(form.get("country") || "").trim() || null,
-          entry_date: String(form.get("date") || "").trim() || new Date().toISOString().slice(0, 10),
-          want_to_recreate: wantToRecreate,
-          created_by: user?.id ?? null
-        })
-        .select("id")
-        .single();
-
-      if (entryError || !entry) {
-        throw entryError ?? new Error("Could not create entry.");
-      }
-
-      const uploadedPhotos = await uploadFoodPhotos({ supabase, entryId: entry.id, files });
-      const { error: photoError } = await supabase.from("photos").insert(
-        uploadedPhotos.map((photo) => ({
-          food_entry_id: entry.id,
-          ...photo,
-          uploaded_by: user?.id ?? null
-        }))
-      );
-
-      if (photoError) {
-        throw photoError;
-      }
-
-      if (tags.length) {
-        const { data: tagRows, error: tagError } = await supabase
-          .from("tags")
-          .upsert(tags.map((name) => ({ name })), { onConflict: "name" })
-          .select("id,name");
-
-        if (!tagError && tagRows?.length) {
-          await supabase.from("food_entry_tags").insert(
-            tagRows.map((tag) => ({
-              food_entry_id: entry.id,
-              tag_id: tag.id
-            }))
-          );
-        }
-      }
-
+      const entry = await buildLocalEntry({ form, title, type, rating, wantToRecreate, tags, files });
+      storeLocalEntry(entry);
       setStatus("saved");
       window.location.replace(returnTo);
     } catch (caught) {
       setStatus("idle");
-      setError(caught instanceof Error ? caught.message : "Something went wrong while saving.");
+      setError(caught instanceof Error ? caught.message : "Something went wrong while saving this memory.");
     }
   }
 
@@ -307,4 +247,78 @@ function safeReturnPath(value: string | null) {
   }
 
   return value;
+}
+
+async function buildLocalEntry({
+  form,
+  title,
+  type,
+  rating,
+  wantToRecreate,
+  tags,
+  files
+}: {
+  form: FormData;
+  title: string;
+  type: EntryType;
+  rating: number;
+  wantToRecreate: boolean;
+  tags: string[];
+  files: File[];
+}): Promise<FoodEntry> {
+  const id = `local-${crypto.randomUUID()}`;
+  const photos = await buildLocalPhotos({ entryId: id, files, title });
+
+  return {
+    id,
+    title,
+    type,
+    rating: rating || undefined,
+    notes: String(form.get("notes") || "").trim() || undefined,
+    recipe: String(form.get("recipe") || "").trim() || undefined,
+    restaurantName: String(form.get("restaurant") || "").trim() || undefined,
+    city: String(form.get("city") || "").trim() || undefined,
+    country: String(form.get("country") || "").trim() || undefined,
+    entryDate: String(form.get("date") || "").trim() || new Date().toISOString().slice(0, 10),
+    wantToRecreate,
+    tags,
+    photos
+  };
+}
+
+async function buildLocalPhotos({
+  entryId,
+  files,
+  title
+}: {
+  entryId: string;
+  files: File[];
+  title: string;
+}): Promise<FoodPhoto[]> {
+  return Promise.all(
+    files.map(async (file, index) => {
+      const compressed = await compressImageFile(file, {
+        maxWidth: 1000,
+        targetMaxBytes: 280 * 1024
+      });
+      const imageUrl = await fileToDataUrl(compressed);
+
+      return {
+        id: `${entryId}-photo-${index + 1}`,
+        imageUrl,
+        thumbnailUrl: imageUrl,
+        alt: title
+      };
+    })
+  );
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read this photo."));
+    reader.readAsDataURL(file);
+  });
 }
