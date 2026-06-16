@@ -43,8 +43,8 @@ export function RecipesExperience({ entries }: RecipesExperienceProps) {
   }
 
   return (
-    <div className="relative isolate mx-auto w-full max-w-[1120px] px-4 pb-10 pt-1 before:fixed before:inset-0 before:-z-10 before:bg-background sm:px-6 lg:px-8">
-      <header className="flex items-end justify-between gap-4 pb-5 pt-2">
+    <div className="relative isolate mx-auto flex h-full w-full max-w-[1120px] flex-col overflow-hidden px-4 pt-1 before:fixed before:inset-0 before:-z-10 before:bg-background sm:px-6 lg:px-8">
+      <header className="flex shrink-0 items-end justify-between gap-4 pb-4 pt-2">
         <h1 className="table-wordmark text-[58px] leading-none text-ink sm:text-[86px]">
           TABLE
         </h1>

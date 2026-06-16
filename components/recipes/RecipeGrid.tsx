@@ -48,7 +48,7 @@ function RecipeCover({
       type="button"
       onClick={() => onSelect(entry)}
       className={cn(
-        "group relative h-[66dvh] max-h-[600px] min-h-[430px] w-[78vw] max-w-[390px] shrink-0 snap-center overflow-hidden rounded-[26px] bg-ink text-left shadow-[0_28px_72px_rgba(17,17,17,0.16)] outline-none transition-[transform,opacity,filter] duration-500 ease-out focus:outline-none focus-visible:outline-none sm:w-[380px]",
+        "group relative h-[clamp(350px,58dvh,560px)] max-h-[calc(100dvh-230px)] w-[78vw] max-w-[390px] shrink-0 snap-center overflow-hidden rounded-[26px] bg-ink text-left shadow-[0_28px_72px_rgba(17,17,17,0.16)] outline-none transition-[transform,opacity,filter] duration-500 ease-out focus:outline-none focus-visible:outline-none sm:w-[380px]",
         index > 0 && "-ml-[22vw] sm:-ml-[150px]",
         isActive ? "opacity-100" : "opacity-70 saturate-[0.82]",
         Math.abs(offset) > 3 && "opacity-35"
@@ -142,11 +142,11 @@ export function RecipeGrid({ entries, onSelect }: RecipeGridProps) {
   }
 
   return (
-    <section className="relative -mx-4 overflow-hidden py-3 sm:mx-0">
+    <section className="relative -mx-4 min-h-0 flex-1 overflow-hidden sm:mx-0">
       <div
         ref={scrollerRef}
         onScroll={updateActiveFromScroll}
-        className="flex snap-x snap-mandatory overflow-x-auto px-[calc(50vw_-_39vw)] pb-8 pt-3 [perspective:1100px] [scroll-behavior:smooth] [scrollbar-width:none] sm:px-[calc(50%_-_190px)] [&::-webkit-scrollbar]:hidden"
+        className="flex h-full snap-x snap-mandatory items-center overflow-x-auto px-[calc(50vw_-_39vw)] pb-28 pt-1 [perspective:1100px] [scroll-behavior:smooth] [scrollbar-width:none] sm:px-[calc(50%_-_190px)] [&::-webkit-scrollbar]:hidden"
       >
         {entries.map((entry, index) => (
           <RecipeCover
