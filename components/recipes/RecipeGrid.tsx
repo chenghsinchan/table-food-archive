@@ -142,7 +142,7 @@ export function RecipeGrid({ entries, onSelect }: RecipeGridProps) {
   }
 
   return (
-    <section className="relative -mx-4 overflow-hidden bg-background py-3 sm:mx-0">
+    <section className="relative -mx-4 overflow-hidden py-3 sm:mx-0">
       <div
         ref={scrollerRef}
         onScroll={updateActiveFromScroll}
