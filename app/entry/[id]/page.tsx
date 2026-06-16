@@ -8,9 +8,8 @@ type EntryPageProps = {
   params: Promise<{ id: string }>;
 };
 
-export function generateStaticParams() {
-  return seedEntries.map((entry) => ({ id: entry.id }));
-}
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function generateMetadata({ params }: EntryPageProps): Promise<Metadata> {
   const { id } = await params;

@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   title: "Add Memory"
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AddEntryPage() {
   const entries = await getFoodEntries();
 

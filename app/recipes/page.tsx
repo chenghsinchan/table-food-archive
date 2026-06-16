@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: "Recipes"
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function RecipesPage() {
   const entries = await getFoodEntries();
 
