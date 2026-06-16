@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, Save } from "lucide-react";
-import { compressImageFile } from "@/lib/supabase/storage";
+import { createClient } from "@/lib/supabase/client";
+import { uploadFoodPhotos } from "@/lib/supabase/storage";
 import { applyEntryOverrides, storeLocalEntry } from "@/lib/utils/local-entry-storage";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { TagPill } from "@/components/ui/TagPill";
@@ -100,7 +101,9 @@ export function EntryForm({ entries }: EntryFormProps) {
     setStatus("saving");
 
     try {
-      const entry = await buildLocalEntry({ form, title, type, rating, wantToRecreate, tags, files });
+      const entryId = `local-${crypto.randomUUID()}`;
+      const photos = await uploadEntryPhotos({ entryId, files, title });
+      const entry = buildLocalEntry({ id: entryId, form, title, type, rating, wantToRecreate, tags, photos });
       storeLocalEntry(entry);
       setStatus("saved");
       window.location.replace(returnTo);
@@ -327,26 +330,25 @@ function canonicalTagKey(tag: string) {
   return key === "favorites" ? "favorite" : key;
 }
 
-async function buildLocalEntry({
+function buildLocalEntry({
+  id,
   form,
   title,
   type,
   rating,
   wantToRecreate,
   tags,
-  files
+  photos
 }: {
+  id: string;
   form: FormData;
   title: string;
   type: EntryType;
   rating: number;
   wantToRecreate: boolean;
   tags: string[];
-  files: File[];
-}): Promise<FoodEntry> {
-  const id = `local-${crypto.randomUUID()}`;
-  const photos = await buildLocalPhotos({ entryId: id, files, title });
-
+  photos: FoodPhoto[];
+}): FoodEntry {
   return {
     id,
     title,
@@ -364,7 +366,7 @@ async function buildLocalEntry({
   };
 }
 
-async function buildLocalPhotos({
+async function uploadEntryPhotos({
   entryId,
   files,
   title
@@ -373,30 +375,18 @@ async function buildLocalPhotos({
   files: File[];
   title: string;
 }): Promise<FoodPhoto[]> {
-  return Promise.all(
-    files.map(async (file, index) => {
-      const compressed = await compressImageFile(file, {
-        maxWidth: 1000,
-        targetMaxBytes: 280 * 1024
-      });
-      const imageUrl = await fileToDataUrl(compressed);
+  const supabase = createClient();
 
-      return {
-        id: `${entryId}-photo-${index + 1}`,
-        imageUrl,
-        thumbnailUrl: imageUrl,
-        alt: title
-      };
-    })
-  );
-}
+  if (!supabase) {
+    throw new Error("Photo upload is not connected. Supabase Storage is required for food photos.");
+  }
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
+  const uploadedPhotos = await uploadFoodPhotos({ supabase, entryId, files });
 
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read this photo."));
-    reader.readAsDataURL(file);
-  });
+  return uploadedPhotos.map((photo, index) => ({
+    id: `${entryId}-photo-${index + 1}`,
+    imageUrl: photo.image_url,
+    thumbnailUrl: photo.thumbnail_url ?? undefined,
+    alt: title
+  }));
 }

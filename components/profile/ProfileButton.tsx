@@ -31,7 +31,9 @@ export function ProfileButton() {
     async function loadProfile() {
       const localProfile = window.localStorage.getItem("table-profile");
       if (localProfile) {
-        setProfile(JSON.parse(localProfile) as ProfilePreview);
+        const parsedProfile = sanitizeProfile(JSON.parse(localProfile) as ProfilePreview);
+        window.localStorage.setItem("table-profile", JSON.stringify(parsedProfile));
+        setProfile(parsedProfile);
       }
 
       const supabase = createClient();
@@ -86,4 +88,12 @@ export function ProfileButton() {
       )}
     </Link>
   );
+}
+
+function sanitizeProfile(profile: ProfilePreview): ProfilePreview {
+  if (profile.avatarUrl?.startsWith("data:image")) {
+    return { name: profile.name };
+  }
+
+  return profile;
 }

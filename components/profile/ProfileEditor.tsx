@@ -11,15 +11,6 @@ type ProfileState = {
   avatarUrl?: string;
 };
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read this image."));
-    reader.readAsDataURL(file);
-  });
-}
-
 export function ProfileEditor() {
   const [profile, setProfile] = useState<ProfileState>({ name: "TABLE" });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -35,7 +26,9 @@ export function ProfileEditor() {
     async function loadProfile() {
       const localProfile = window.localStorage.getItem("table-profile");
       if (localProfile) {
-        setProfile(JSON.parse(localProfile) as ProfileState);
+        const parsedProfile = sanitizeProfile(JSON.parse(localProfile) as ProfileState);
+        window.localStorage.setItem("table-profile", JSON.stringify(parsedProfile));
+        setProfile(parsedProfile);
       }
 
       const supabase = createClient();
@@ -96,28 +89,29 @@ export function ProfileEditor() {
       let avatarStoragePath: string | null = null;
 
       if (avatarFile) {
-        if (supabase && userId) {
-          const compressed = await compressImageFile(avatarFile, {
-            maxWidth: 512,
-            targetMaxBytes: 300 * 1024,
-            mimeType: "image/jpeg"
-          });
-          const path = `profiles/${userId}/avatar-${crypto.randomUUID()}.jpg`;
-          const { error: uploadError } = await supabase.storage.from("food-photos").upload(path, compressed, {
-            cacheControl: "31536000",
-            upsert: true
-          });
-
-          if (uploadError) {
-            throw uploadError;
-          }
-
-          const { data } = supabase.storage.from("food-photos").getPublicUrl(path);
-          avatarUrl = data.publicUrl;
-          avatarStoragePath = path;
-        } else {
-          avatarUrl = await fileToDataUrl(avatarFile);
+        if (!supabase) {
+          throw new Error("Photo upload is not connected. Supabase Storage is required for profile images.");
         }
+
+        const profileId = userId ?? getLocalProfileId();
+        const compressed = await compressImageFile(avatarFile, {
+          maxWidth: 512,
+          targetMaxBytes: 300 * 1024,
+          mimeType: "image/jpeg"
+        });
+        const path = `profiles/${profileId}/avatar-${crypto.randomUUID()}.jpg`;
+        const { error: uploadError } = await supabase.storage.from("food-photos").upload(path, compressed, {
+          cacheControl: "31536000",
+          upsert: true
+        });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data } = supabase.storage.from("food-photos").getPublicUrl(path);
+        avatarUrl = data.publicUrl;
+        avatarStoragePath = path;
       }
 
       if (supabase && userId) {
@@ -135,7 +129,7 @@ export function ProfileEditor() {
         }
       }
 
-      const nextProfile = { name, avatarUrl };
+      const nextProfile = sanitizeProfile({ name, avatarUrl });
       window.localStorage.setItem("table-profile", JSON.stringify(nextProfile));
       setProfile(nextProfile);
       setSaved(true);
@@ -177,4 +171,24 @@ export function ProfileEditor() {
       {error ? <p className="text-center text-sm leading-6 text-accent">{error}</p> : null}
     </form>
   );
+}
+
+function getLocalProfileId() {
+  const storedId = window.localStorage.getItem("table-profile-id");
+
+  if (storedId) {
+    return storedId;
+  }
+
+  const nextId = `local-${crypto.randomUUID()}`;
+  window.localStorage.setItem("table-profile-id", nextId);
+  return nextId;
+}
+
+function sanitizeProfile(profile: ProfileState): ProfileState {
+  if (profile.avatarUrl?.startsWith("data:image")) {
+    return { name: profile.name };
+  }
+
+  return profile;
 }
