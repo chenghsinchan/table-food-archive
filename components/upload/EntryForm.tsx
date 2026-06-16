@@ -211,10 +211,7 @@ export function EntryForm({ entries }: EntryFormProps) {
             <div className="flex flex-wrap gap-2">
               {suggestedTags.map((tag) => (
                 <TagPill key={tag.name} active={tags.includes(tag.name)} onClick={() => toggleTag(tag.name)}>
-                  <span className="inline-flex items-center gap-2">
-                    <span>{tag.name}</span>
-                    {tag.count > 0 ? <span className="text-[11px] opacity-55">{tag.count}</span> : null}
-                  </span>
+                  {tag.name}
                 </TagPill>
               ))}
               {tags.filter((tag) => !suggestedTags.some((item) => canonicalTagKey(item.name) === canonicalTagKey(tag))).map((tag) => (
