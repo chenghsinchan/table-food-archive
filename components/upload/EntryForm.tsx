@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { saveEntryToSupabase } from "@/lib/supabase/save-entry";
 import { uploadFoodPhotos } from "@/lib/supabase/storage";
-import { applyEntryOverrides, storeLocalEntry } from "@/lib/utils/local-entry-storage";
+import { applyEntryOverrides } from "@/lib/utils/local-entry-storage";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { TagPill } from "@/components/ui/TagPill";
 import { PhotoUploader } from "@/components/upload/PhotoUploader";
@@ -101,10 +102,16 @@ export function EntryForm({ entries }: EntryFormProps) {
     setStatus("saving");
 
     try {
-      const entryId = `local-${crypto.randomUUID()}`;
+      const entryId = crypto.randomUUID();
       const photos = await uploadEntryPhotos({ entryId, files, title });
       const entry = buildLocalEntry({ id: entryId, form, title, type, rating, wantToRecreate, tags, photos });
-      storeLocalEntry(entry);
+      const supabase = createClient();
+
+      if (!supabase) {
+        throw new Error("Supabase is not connected. Shared archive saves need Supabase.");
+      }
+
+      await saveEntryToSupabase(supabase, entry);
       setStatus("saved");
       window.location.replace(returnTo);
     } catch (caught) {

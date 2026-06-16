@@ -66,6 +66,12 @@ export function storeLocalEntry(entry: FoodEntry) {
   window.localStorage.setItem(LOCAL_ENTRIES_KEY, JSON.stringify([sanitizeStoredEntry(entry), ...entries]));
 }
 
+export function clearLocalEntries() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.removeItem(LOCAL_ENTRIES_KEY);
+}
+
 export function storeEntryEdit(entry: FoodEntry) {
   const edits = readEntryEdits();
   edits[entry.id] = {

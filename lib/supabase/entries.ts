@@ -134,6 +134,10 @@ export async function getFoodEntries() {
   }
 
   const rows = (data ?? []) as EntryRow[];
+  if (!rows.length) {
+    return seedEntries;
+  }
+
   const profiles = await getProfilesForEntries(supabase, rows);
 
   return rows.map((row) => transformEntry(row, profiles));

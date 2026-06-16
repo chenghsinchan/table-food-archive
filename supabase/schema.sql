@@ -128,10 +128,22 @@ on public.food_entries for select
 to authenticated
 using (true);
 
+drop policy if exists "Public archive can read entries" on public.food_entries;
+create policy "Public archive can read entries"
+on public.food_entries for select
+to anon
+using (true);
+
 drop policy if exists "Authenticated users can create entries" on public.food_entries;
 create policy "Authenticated users can create entries"
 on public.food_entries for insert
 to authenticated
+with check (true);
+
+drop policy if exists "Public archive can create entries" on public.food_entries;
+create policy "Public archive can create entries"
+on public.food_entries for insert
+to anon
 with check (true);
 
 drop policy if exists "Authenticated users can update entries" on public.food_entries;
@@ -141,10 +153,23 @@ to authenticated
 using (true)
 with check (true);
 
+drop policy if exists "Public archive can update entries" on public.food_entries;
+create policy "Public archive can update entries"
+on public.food_entries for update
+to anon
+using (true)
+with check (true);
+
 drop policy if exists "Authenticated users can delete entries" on public.food_entries;
 create policy "Authenticated users can delete entries"
 on public.food_entries for delete
 to authenticated
+using (true);
+
+drop policy if exists "Public archive can delete entries" on public.food_entries;
+create policy "Public archive can delete entries"
+on public.food_entries for delete
+to anon
 using (true);
 
 drop policy if exists "Authenticated users can read photos" on public.photos;
@@ -153,10 +178,22 @@ on public.photos for select
 to authenticated
 using (true);
 
+drop policy if exists "Public archive can read photos" on public.photos;
+create policy "Public archive can read photos"
+on public.photos for select
+to anon
+using (true);
+
 drop policy if exists "Authenticated users can create photos" on public.photos;
 create policy "Authenticated users can create photos"
 on public.photos for insert
 to authenticated
+with check (true);
+
+drop policy if exists "Public archive can create photos" on public.photos;
+create policy "Public archive can create photos"
+on public.photos for insert
+to anon
 with check (true);
 
 drop policy if exists "Authenticated users can update photos" on public.photos;
@@ -166,10 +203,23 @@ to authenticated
 using (true)
 with check (true);
 
+drop policy if exists "Public archive can update photos" on public.photos;
+create policy "Public archive can update photos"
+on public.photos for update
+to anon
+using (true)
+with check (true);
+
 drop policy if exists "Authenticated users can delete photos" on public.photos;
 create policy "Authenticated users can delete photos"
 on public.photos for delete
 to authenticated
+using (true);
+
+drop policy if exists "Public archive can delete photos" on public.photos;
+create policy "Public archive can delete photos"
+on public.photos for delete
+to anon
 using (true);
 
 drop policy if exists "Authenticated users can read tags" on public.tags;
@@ -178,10 +228,29 @@ on public.tags for select
 to authenticated
 using (true);
 
+drop policy if exists "Public archive can read tags" on public.tags;
+create policy "Public archive can read tags"
+on public.tags for select
+to anon
+using (true);
+
 drop policy if exists "Authenticated users can create tags" on public.tags;
 create policy "Authenticated users can create tags"
 on public.tags for insert
 to authenticated
+with check (true);
+
+drop policy if exists "Public archive can create tags" on public.tags;
+create policy "Public archive can create tags"
+on public.tags for insert
+to anon
+with check (true);
+
+drop policy if exists "Public archive can update tags" on public.tags;
+create policy "Public archive can update tags"
+on public.tags for update
+to anon
+using (true)
 with check (true);
 
 drop policy if exists "Authenticated users can read entry tags" on public.food_entry_tags;
@@ -190,16 +259,34 @@ on public.food_entry_tags for select
 to authenticated
 using (true);
 
+drop policy if exists "Public archive can read entry tags" on public.food_entry_tags;
+create policy "Public archive can read entry tags"
+on public.food_entry_tags for select
+to anon
+using (true);
+
 drop policy if exists "Authenticated users can create entry tags" on public.food_entry_tags;
 create policy "Authenticated users can create entry tags"
 on public.food_entry_tags for insert
 to authenticated
 with check (true);
 
+drop policy if exists "Public archive can create entry tags" on public.food_entry_tags;
+create policy "Public archive can create entry tags"
+on public.food_entry_tags for insert
+to anon
+with check (true);
+
 drop policy if exists "Authenticated users can delete entry tags" on public.food_entry_tags;
 create policy "Authenticated users can delete entry tags"
 on public.food_entry_tags for delete
 to authenticated
+using (true);
+
+drop policy if exists "Public archive can delete entry tags" on public.food_entry_tags;
+create policy "Public archive can delete entry tags"
+on public.food_entry_tags for delete
+to anon
 using (true);
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -215,10 +302,22 @@ on storage.objects for insert
 to authenticated
 with check (bucket_id = 'food-photos');
 
+drop policy if exists "Public archive can upload food photos" on storage.objects;
+create policy "Public archive can upload food photos"
+on storage.objects for insert
+to anon
+with check (bucket_id = 'food-photos');
+
 drop policy if exists "Authenticated users can read food photos" on storage.objects;
 create policy "Authenticated users can read food photos"
 on storage.objects for select
 to authenticated
+using (bucket_id = 'food-photos');
+
+drop policy if exists "Public archive can read food photos" on storage.objects;
+create policy "Public archive can read food photos"
+on storage.objects for select
+to anon
 using (bucket_id = 'food-photos');
 
 drop policy if exists "Authenticated users can update food photos" on storage.objects;
@@ -228,8 +327,21 @@ to authenticated
 using (bucket_id = 'food-photos')
 with check (bucket_id = 'food-photos');
 
+drop policy if exists "Public archive can update food photos" on storage.objects;
+create policy "Public archive can update food photos"
+on storage.objects for update
+to anon
+using (bucket_id = 'food-photos')
+with check (bucket_id = 'food-photos');
+
 drop policy if exists "Authenticated users can delete food photos" on storage.objects;
 create policy "Authenticated users can delete food photos"
 on storage.objects for delete
 to authenticated
+using (bucket_id = 'food-photos');
+
+drop policy if exists "Public archive can delete food photos" on storage.objects;
+create policy "Public archive can delete food photos"
+on storage.objects for delete
+to anon
 using (bucket_id = 'food-photos');
