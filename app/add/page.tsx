@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { EntryForm } from "@/components/upload/EntryForm";
+import { getFoodEntries } from "@/lib/supabase/entries";
 
 export const metadata: Metadata = {
   title: "Add Memory"
 };
 
-export default function AddEntryPage() {
+export default async function AddEntryPage() {
+  const entries = await getFoodEntries();
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-4 pb-10 pt-1 sm:px-6">
       <header className="space-y-3 pt-2">
@@ -16,7 +19,7 @@ export default function AddEntryPage() {
         </h1>
       </header>
       <Suspense>
-        <EntryForm />
+        <EntryForm entries={entries} />
       </Suspense>
     </div>
   );

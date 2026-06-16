@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, Save } from "lucide-react";
 import { compressImageFile } from "@/lib/supabase/storage";
-import { storeLocalEntry } from "@/lib/utils/local-entry-storage";
+import { applyEntryOverrides, storeLocalEntry } from "@/lib/utils/local-entry-storage";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { TagPill } from "@/components/ui/TagPill";
 import { PhotoUploader } from "@/components/upload/PhotoUploader";
 import type { EntryType, FoodEntry, FoodPhoto } from "@/types/food";
 
-const suggestedTags = [
+const fallbackTags = [
   "Comfort",
   "Quick",
   "Seafood",
@@ -25,8 +25,18 @@ const suggestedTags = [
 ];
 const entryTypes: EntryType[] = ["home", "restaurant", "travel", "recipe"];
 
-export function EntryForm() {
+type EntryFormProps = {
+  entries: FoodEntry[];
+};
+
+type RankedTag = {
+  name: string;
+  count: number;
+};
+
+export function EntryForm({ entries }: EntryFormProps) {
   const searchParams = useSearchParams();
+  const [tagSourceEntries, setTagSourceEntries] = useState(entries);
   const [rating, setRating] = useState(0);
   const [type, setType] = useState<EntryType>("home");
   const [wantToRecreate, setWantToRecreate] = useState(false);
@@ -36,6 +46,12 @@ export function EntryForm() {
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
   const returnTo = safeReturnPath(searchParams.get("returnTo"));
+
+  useEffect(() => {
+    setTagSourceEntries(applyEntryOverrides(entries));
+  }, [entries]);
+
+  const suggestedTags = useMemo(() => rankTags(tagSourceEntries, tags), [tagSourceEntries, tags]);
 
   function toggleTag(tag: string) {
     setTags((current) => (current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]));
@@ -49,7 +65,7 @@ export function EntryForm() {
     }
 
     setTags((current) => {
-      const exists = current.some((item) => item.toLowerCase() === tag.toLowerCase());
+      const exists = current.some((item) => canonicalTagKey(item) === canonicalTagKey(tag));
       return exists ? current : [...current, tag];
     });
     setCustomTag("");
@@ -194,11 +210,14 @@ export function EntryForm() {
             <span className="text-sm font-medium text-muted">Tags</span>
             <div className="flex flex-wrap gap-2">
               {suggestedTags.map((tag) => (
-                <TagPill key={tag} active={tags.includes(tag)} onClick={() => toggleTag(tag)}>
-                  {tag}
+                <TagPill key={tag.name} active={tags.includes(tag.name)} onClick={() => toggleTag(tag.name)}>
+                  <span className="inline-flex items-center gap-2">
+                    <span>{tag.name}</span>
+                    {tag.count > 0 ? <span className="text-[11px] opacity-55">{tag.count}</span> : null}
+                  </span>
                 </TagPill>
               ))}
-              {tags.filter((tag) => !suggestedTags.includes(tag)).map((tag) => (
+              {tags.filter((tag) => !suggestedTags.some((item) => canonicalTagKey(item.name) === canonicalTagKey(tag))).map((tag) => (
                 <TagPill key={tag} active onClick={() => toggleTag(tag)}>
                   {tag}
                 </TagPill>
@@ -247,6 +266,68 @@ function safeReturnPath(value: string | null) {
   }
 
   return value;
+}
+
+function rankTags(entries: FoodEntry[], selectedTags: string[]): RankedTag[] {
+  const counts = new Map<string, RankedTag>();
+  const preferredNames = new Map<string, string>();
+
+  for (const tag of fallbackTags) {
+    preferredNames.set(canonicalTagKey(tag), tag);
+  }
+
+  for (const entry of entries) {
+    for (const rawTag of entry.tags) {
+      const trimmedTag = rawTag.trim();
+
+      if (!trimmedTag) {
+        continue;
+      }
+
+      const key = canonicalTagKey(trimmedTag);
+      const name = preferredNames.get(key) ?? trimmedTag;
+      preferredNames.set(key, name);
+      counts.set(key, {
+        name,
+        count: (counts.get(key)?.count ?? 0) + 1
+      });
+    }
+  }
+
+  for (const tag of [...fallbackTags, ...selectedTags]) {
+    const key = canonicalTagKey(tag);
+
+    if (!counts.has(key)) {
+      counts.set(key, {
+        name: preferredNames.get(key) ?? tag,
+        count: 0
+      });
+    }
+  }
+
+  return Array.from(counts.values()).sort((a, b) => {
+    const countDifference = b.count - a.count;
+
+    if (countDifference !== 0) {
+      return countDifference;
+    }
+
+    const fallbackIndexA = fallbackTags.findIndex((tag) => canonicalTagKey(tag) === canonicalTagKey(a.name));
+    const fallbackIndexB = fallbackTags.findIndex((tag) => canonicalTagKey(tag) === canonicalTagKey(b.name));
+
+    if (fallbackIndexA !== -1 || fallbackIndexB !== -1) {
+      return (fallbackIndexA === -1 ? Number.POSITIVE_INFINITY : fallbackIndexA) -
+        (fallbackIndexB === -1 ? Number.POSITIVE_INFINITY : fallbackIndexB);
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function canonicalTagKey(tag: string) {
+  const key = tag.trim().toLowerCase();
+
+  return key === "favorites" ? "favorite" : key;
 }
 
 async function buildLocalEntry({
