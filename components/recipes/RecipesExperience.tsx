@@ -6,7 +6,6 @@ import { FoodEntryModal } from "@/components/entry/FoodEntryModal";
 import { ProfileButton } from "@/components/profile/ProfileButton";
 import { RecipeGrid } from "@/components/recipes/RecipeGrid";
 import { isRecipeCandidate } from "@/lib/utils/entries";
-import { applyEntryOverrides } from "@/lib/utils/local-entry-storage";
 
 type RecipesExperienceProps = {
   entries: FoodEntry[];
@@ -17,7 +16,7 @@ export function RecipesExperience({ entries }: RecipesExperienceProps) {
   const [selectedEntry, setSelectedEntry] = useState<FoodEntry | null>(null);
 
   useEffect(() => {
-    setEditableEntries(applyEntryOverrides(entries));
+    setEditableEntries(entries);
   }, [entries]);
 
   const recipeEntries = useMemo(() => {

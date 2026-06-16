@@ -5,8 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Check, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { saveEntryToSupabase } from "@/lib/supabase/save-entry";
-import { uploadFoodPhotos } from "@/lib/supabase/storage";
-import { applyEntryOverrides } from "@/lib/utils/local-entry-storage";
+import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { TagPill } from "@/components/ui/TagPill";
 import { PhotoUploader } from "@/components/upload/PhotoUploader";
@@ -50,7 +49,7 @@ export function EntryForm({ entries }: EntryFormProps) {
   const returnTo = safeReturnPath(searchParams.get("returnTo"));
 
   useEffect(() => {
-    setTagSourceEntries(applyEntryOverrides(entries));
+    setTagSourceEntries(entries);
   }, [entries]);
 
   const suggestedTags = useMemo(() => rankTags(tagSourceEntries, tags), [tagSourceEntries, tags]);
@@ -390,10 +389,5 @@ async function uploadEntryPhotos({
 
   const uploadedPhotos = await uploadFoodPhotos({ supabase, entryId, files });
 
-  return uploadedPhotos.map((photo, index) => ({
-    id: `${entryId}-photo-${index + 1}`,
-    imageUrl: photo.image_url,
-    thumbnailUrl: photo.thumbnail_url ?? undefined,
-    alt: title
-  }));
+  return uploadedPhotos.map((upload, index) => photoFromUpload({ entryId, title, upload, index }));
 }

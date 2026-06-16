@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { BookOpen, CalendarDays, Check, Pencil, Star, Trash2, X } from "lucide-react";
-import type { FoodEntry } from "@/types/food";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BookOpen, CalendarDays, Check, ImagePlus, Pencil, Star, Trash2, X } from "lucide-react";
+import type { FoodEntry, FoodPhoto } from "@/types/food";
 import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
+import { TagPill } from "@/components/ui/TagPill";
 import { createClient } from "@/lib/supabase/client";
+import { deleteEntryFromSupabase, saveEntryToSupabase } from "@/lib/supabase/save-entry";
+import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
 import { cn } from "@/lib/utils/cn";
 import { formatLongDate } from "@/lib/utils/date";
 import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
-import { storeEntryDeletion, storeEntryEdit } from "@/lib/utils/local-entry-storage";
 
 type FoodEntryModalProps = {
   entry: FoodEntry;
@@ -22,7 +24,31 @@ type DraftEntry = {
   rating: number;
   notes: string;
   recipe: string;
+  tags: string[];
+  photos: FoodPhoto[];
+  files: File[];
+  customTag: string;
 };
+
+const defaultTags = [
+  "Home",
+  "Quick",
+  "Comfort",
+  "Favorite",
+  "Light",
+  "Rich",
+  "Seafood",
+  "Vegetarian",
+  "Restaurant",
+  "Travel",
+  "Taiwanese",
+  "Japanese",
+  "Lithuanian",
+  "Italian",
+  "Pasta",
+  "Summer",
+  "Winter"
+];
 
 function CompactStars({
   value,
@@ -68,17 +94,98 @@ function CompactStars({
 }
 
 export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntryModalProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<DraftEntry>({
     title: entry.title,
     rating: entry.rating ?? 0,
     notes: entry.notes ?? "",
-    recipe: entry.recipe ?? ""
+    recipe: entry.recipe ?? "",
+    tags: entry.tags,
+    photos: entry.photos,
+    files: [],
+    customTag: ""
   });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
+  const newPhotoPreviews = useMemo(
+    () => draft.files.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    [draft.files]
+  );
+  const tagChoices = useMemo(() => {
+    const byKey = new Map<string, string>();
+
+    for (const tag of [...entry.tags, ...draft.tags, ...defaultTags]) {
+      const trimmed = tag.trim();
+      if (trimmed) {
+        byKey.set(canonicalTagKey(trimmed), trimmed);
+      }
+    }
+
+    return Array.from(byKey.values());
+  }, [draft.tags, entry.tags]);
+
+  useEffect(() => {
+    return () => {
+      newPhotoPreviews.forEach((preview) => URL.revokeObjectURL(preview.url));
+    };
+  }, [newPhotoPreviews]);
+
+  function startEditing() {
+    setDraft({
+      title: entry.title,
+      rating: entry.rating ?? 0,
+      notes: entry.notes ?? "",
+      recipe: entry.recipe ?? "",
+      tags: entry.tags,
+      photos: entry.photos,
+      files: [],
+      customTag: ""
+    });
+    setError("");
+    setIsEditing(true);
+  }
+
+  function toggleTag(tag: string) {
+    setDraft((current) => {
+      const key = canonicalTagKey(tag);
+      const exists = current.tags.some((candidate) => canonicalTagKey(candidate) === key);
+
+      return {
+        ...current,
+        tags: exists ? current.tags.filter((candidate) => canonicalTagKey(candidate) !== key) : [...current.tags, tag]
+      };
+    });
+  }
+
+  function addCustomTag() {
+    const tag = draft.customTag.trim();
+
+    if (!tag) {
+      return;
+    }
+
+    setDraft((current) => {
+      const exists = current.tags.some((candidate) => canonicalTagKey(candidate) === canonicalTagKey(tag));
+
+      return {
+        ...current,
+        customTag: "",
+        tags: exists ? current.tags : [...current.tags, tag]
+      };
+    });
+  }
+
+  function addFiles(fileList: FileList | null) {
+    if (!fileList) {
+      return;
+    }
+
+    const imageFiles = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
+    setDraft((current) => ({ ...current, files: [...current.files, ...imageFiles] }));
+  }
 
   async function saveEdit() {
     setError("");
@@ -90,28 +197,29 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
         title: draft.title.trim() || entry.title,
         rating: draft.rating || undefined,
         notes: draft.notes.trim() || undefined,
-        recipe: draft.recipe.trim() || undefined
+        recipe: draft.recipe.trim() || undefined,
+        tags: uniqueTags(draft.tags),
+        photos: draft.photos
       };
 
       const supabase = createClient();
-      if (supabase) {
-        const { error: updateError } = await supabase
-          .from("food_entries")
-          .update({
-            title: nextEntry.title,
-            rating: nextEntry.rating ?? null,
-            notes: nextEntry.notes ?? null,
-            recipe: nextEntry.recipe ?? null,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", entry.id);
-
-        if (updateError) {
-          throw updateError;
-        }
+      if (!supabase) {
+        throw new Error("Supabase is not connected.");
       }
 
-      storeEntryEdit(nextEntry);
+      if (draft.files.length) {
+        const uploads = await uploadFoodPhotos({ supabase, entryId: entry.id, files: draft.files });
+        nextEntry.photos = [
+          ...draft.photos,
+          ...uploads.map((upload, index) => photoFromUpload({ entryId: entry.id, title: nextEntry.title, upload, index }))
+        ];
+      }
+
+      if (!nextEntry.photos.length) {
+        throw new Error("Keep at least one photo on this food card.");
+      }
+
+      await saveEntryToSupabase(supabase, nextEntry);
       onUpdate?.(nextEntry);
       setIsEditing(false);
     } catch (caught) {
@@ -133,18 +241,11 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
 
     try {
       const supabase = createClient();
-      if (supabase) {
-        const { error: deleteError } = await supabase
-          .from("food_entries")
-          .delete()
-          .eq("id", entry.id);
-
-        if (deleteError) {
-          throw deleteError;
-        }
+      if (!supabase) {
+        throw new Error("Supabase is not connected.");
       }
 
-      storeEntryDeletion(entry.id);
+      await deleteEntryFromSupabase(supabase, entry.id);
       onDelete?.(entry.id);
       onClose();
     } catch (caught) {
@@ -178,7 +279,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
             ) : (
               <button
                 type="button"
-                onClick={() => setIsEditing(true)}
+                onClick={startEditing}
                 className="tap-scale hover:text-ink"
                 aria-label="Edit food card"
               >
@@ -256,6 +357,104 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
             )}
           </section>
 
+          <section className="border-t border-border pt-6">
+            <h3 className="mb-4 font-mono text-sm uppercase text-muted">Tags</h3>
+            {isEditing ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {tagChoices.map((tag) => (
+                    <TagPill
+                      key={tag}
+                      active={draft.tags.some((candidate) => canonicalTagKey(candidate) === canonicalTagKey(tag))}
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag}
+                    </TagPill>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={draft.customTag}
+                    onChange={(event) => setDraft((current) => ({ ...current, customTag: event.target.value }))}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addCustomTag();
+                      }
+                    }}
+                    placeholder="Add tag"
+                    className="min-h-11 flex-1 rounded-lg border border-border bg-white px-4 text-sm outline-none transition focus:border-accent"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomTag}
+                    className="tap-scale rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {entry.tags.length ? entry.tags.map((tag) => (
+                  <span key={tag} className="rounded-full border border-border bg-white px-3 py-1.5 text-sm font-medium text-ink">
+                    {tag}
+                  </span>
+                )) : <p className="text-sm text-muted">No tags yet.</p>}
+              </div>
+            )}
+          </section>
+
+          {isEditing ? (
+            <section className="border-t border-border pt-6">
+              <h3 className="mb-4 font-mono text-sm uppercase text-muted">Photos</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {draft.photos.map((photo) => (
+                  <div key={photo.id} className="group relative overflow-hidden rounded-lg">
+                    <img src={photo.thumbnailUrl ?? photo.imageUrl} alt={photo.alt} className="aspect-[4/5] w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setDraft((current) => ({ ...current, photos: current.photos.filter((item) => item.id !== photo.id) }))}
+                      className="absolute right-1.5 top-1.5 grid size-8 place-items-center rounded-full bg-white/86 text-ink shadow-sm"
+                      aria-label="Remove photo"
+                    >
+                      <Trash2 aria-hidden="true" size={15} />
+                    </button>
+                  </div>
+                ))}
+                {newPhotoPreviews.map(({ file, url }) => (
+                  <div key={`${file.name}-${file.lastModified}`} className="group relative overflow-hidden rounded-lg">
+                    <img src={url} alt={file.name} className="aspect-[4/5] w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setDraft((current) => ({ ...current, files: current.files.filter((item) => item !== file) }))}
+                      className="absolute right-1.5 top-1.5 grid size-8 place-items-center rounded-full bg-white/86 text-ink shadow-sm"
+                      aria-label="Remove new photo"
+                    >
+                      <Trash2 aria-hidden="true" size={15} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="tap-scale grid aspect-[4/5] place-items-center rounded-lg border border-dashed border-border bg-white text-muted"
+                  aria-label="Add photos"
+                >
+                  <ImagePlus aria-hidden="true" size={26} strokeWidth={1.8} />
+                </button>
+              </div>
+              <input
+                ref={fileInputRef}
+                className="sr-only"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(event) => addFiles(event.target.files)}
+              />
+            </section>
+          ) : null}
+
           <section className="pattern-dots rounded-lg border border-border bg-white p-5">
             <h3 className="mb-4 flex items-center gap-2 font-mono text-sm uppercase text-accent">
               <BookOpen aria-hidden="true" size={20} strokeWidth={1.9} />
@@ -286,4 +485,24 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
       </article>
     </div>
   );
+}
+
+function canonicalTagKey(tag: string) {
+  const key = tag.trim().toLowerCase();
+
+  return key === "favorites" ? "favorite" : key;
+}
+
+function uniqueTags(tags: string[]) {
+  const byKey = new Map<string, string>();
+
+  for (const tag of tags) {
+    const trimmed = tag.trim();
+
+    if (trimmed) {
+      byKey.set(canonicalTagKey(trimmed), trimmed);
+    }
+  }
+
+  return Array.from(byKey.values());
 }

@@ -8,7 +8,6 @@ import { ProfileButton } from "@/components/profile/ProfileButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { searchEntries } from "@/lib/utils/entries";
-import { applyEntryOverrides } from "@/lib/utils/local-entry-storage";
 
 type HomeExperienceProps = {
   entries: FoodEntry[];
@@ -20,7 +19,7 @@ export function HomeExperience({ entries }: HomeExperienceProps) {
   const [selectedEntry, setSelectedEntry] = useState<FoodEntry | null>(null);
 
   useEffect(() => {
-    setEditableEntries(applyEntryOverrides(entries));
+    setEditableEntries(entries);
   }, [entries]);
 
   const visibleEntries = useMemo(() => {

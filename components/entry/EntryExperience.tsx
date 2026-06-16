@@ -7,10 +7,10 @@ import { BookOpen, CalendarDays, Check, MapPin, Pencil, Star, Trash2, X } from "
 import type { FoodEntry } from "@/types/food";
 import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
 import { createClient } from "@/lib/supabase/client";
+import { deleteEntryFromSupabase, saveEntryToSupabase } from "@/lib/supabase/save-entry";
 import { cn } from "@/lib/utils/cn";
 import { formatLongDate } from "@/lib/utils/date";
 import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
-import { applyEntryOverride, readDeletedEntryIds, storeEntryDeletion, storeEntryEdit } from "@/lib/utils/local-entry-storage";
 
 type EntryExperienceProps = {
   entry: FoodEntry;
@@ -82,18 +82,12 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
   });
 
   useEffect(() => {
-    if (readDeletedEntryIds().has(entry.id)) {
-      router.replace("/");
-      return;
-    }
-
-    const storedEntry = applyEntryOverride(entry);
-    setCurrentEntry(storedEntry);
+    setCurrentEntry(entry);
     setDraft({
-      title: storedEntry.title,
-      rating: storedEntry.rating ?? 0,
-      notes: storedEntry.notes ?? "",
-      recipe: storedEntry.recipe ?? ""
+      title: entry.title,
+      rating: entry.rating ?? 0,
+      notes: entry.notes ?? "",
+      recipe: entry.recipe ?? ""
     });
   }, [entry, router]);
 
@@ -112,23 +106,9 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
 
       const supabase = createClient();
       if (supabase) {
-        const { error: updateError } = await supabase
-          .from("food_entries")
-          .update({
-            title: nextEntry.title,
-            rating: nextEntry.rating ?? null,
-            notes: nextEntry.notes ?? null,
-            recipe: nextEntry.recipe ?? null,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", nextEntry.id);
-
-        if (updateError) {
-          throw updateError;
-        }
+        await saveEntryToSupabase(supabase, nextEntry);
       }
 
-      storeEntryEdit(nextEntry);
       setCurrentEntry(nextEntry);
       setIsEditing(false);
     } catch (caught) {
@@ -151,17 +131,9 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
     try {
       const supabase = createClient();
       if (supabase) {
-        const { error: deleteError } = await supabase
-          .from("food_entries")
-          .delete()
-          .eq("id", currentEntry.id);
-
-        if (deleteError) {
-          throw deleteError;
-        }
+        await deleteEntryFromSupabase(supabase, currentEntry.id);
       }
 
-      storeEntryDeletion(currentEntry.id);
       router.replace("/");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not delete this food card.");

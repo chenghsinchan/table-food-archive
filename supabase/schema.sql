@@ -66,6 +66,27 @@ create table if not exists public.food_entry_tags (
   primary key (food_entry_id, tag_id)
 );
 
+alter table public.photos
+  drop constraint if exists photos_food_entry_id_fkey;
+
+alter table public.photos
+  add constraint photos_food_entry_id_fkey
+  foreign key (food_entry_id) references public.food_entries(id) on delete cascade;
+
+alter table public.food_entry_tags
+  drop constraint if exists food_entry_tags_food_entry_id_fkey;
+
+alter table public.food_entry_tags
+  add constraint food_entry_tags_food_entry_id_fkey
+  foreign key (food_entry_id) references public.food_entries(id) on delete cascade;
+
+alter table public.food_entry_tags
+  drop constraint if exists food_entry_tags_tag_id_fkey;
+
+alter table public.food_entry_tags
+  add constraint food_entry_tags_tag_id_fkey
+  foreign key (tag_id) references public.tags(id) on delete cascade;
+
 create index if not exists food_entries_entry_date_idx on public.food_entries(entry_date desc);
 create index if not exists food_entries_created_by_idx on public.food_entries(created_by);
 create index if not exists photos_food_entry_id_idx on public.photos(food_entry_id);

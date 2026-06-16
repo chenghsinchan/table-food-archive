@@ -6,6 +6,7 @@ type PhotoRow = {
   id: string;
   image_url: string;
   thumbnail_url: string | null;
+  storage_path?: string | null;
 };
 
 type TagRelationRow = {
@@ -28,6 +29,8 @@ type EntryRow = {
   entry_date: string;
   want_to_recreate?: boolean | null;
   created_by: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
   photos: PhotoRow[] | null;
   food_entry_tags: TagRelationRow[] | null;
 };
@@ -56,6 +59,7 @@ function transformEntry(row: EntryRow, profiles: Map<string, ProfileRow> = new M
     id: photo.id,
     imageUrl: photo.image_url,
     thumbnailUrl: photo.thumbnail_url ?? undefined,
+    storagePath: photo.storage_path ?? undefined,
     alt: row.title
   }));
 
@@ -125,22 +129,22 @@ export async function getFoodEntries() {
 
   const { data, error } = await supabase
     .from("food_entries")
-    .select("*, photos(id,image_url,thumbnail_url), food_entry_tags(tags(name))")
+    .select("*, photos(id,image_url,thumbnail_url,storage_path), food_entry_tags(tags(name))")
     .eq("is_archived", false)
     .order("entry_date", { ascending: false });
 
   if (error) {
-    return seedEntries;
+    return [];
   }
 
   const rows = (data ?? []) as EntryRow[];
   if (!rows.length) {
-    return seedEntries;
+    return [];
   }
 
   const profiles = await getProfilesForEntries(supabase, rows);
 
-  return rows.map((row) => transformEntry(row, profiles));
+  return dedupeEntryRows(rows).map((row) => transformEntry(row, profiles));
 }
 
 export async function getFoodEntryById(id: string) {
@@ -152,17 +156,46 @@ export async function getFoodEntryById(id: string) {
 
   const { data, error } = await supabase
     .from("food_entries")
-    .select("*, photos(id,image_url,thumbnail_url), food_entry_tags(tags(name))")
+    .select("*, photos(id,image_url,thumbnail_url,storage_path), food_entry_tags(tags(name))")
     .eq("id", id)
     .eq("is_archived", false)
     .single();
 
   if (error || !data) {
-    return seedEntries.find((entry) => entry.id === id) ?? null;
+    return null;
   }
 
   const row = data as EntryRow;
   const profiles = await getProfilesForEntries(supabase, [row]);
 
   return transformEntry(row, profiles);
+}
+
+function dedupeEntryRows(rows: EntryRow[]) {
+  const seen = new Set<string>();
+
+  return [...rows]
+    .sort((a, b) => {
+      const aTime = new Date(a.updated_at ?? a.created_at ?? `${a.entry_date}T12:00:00`).getTime();
+      const bTime = new Date(b.updated_at ?? b.created_at ?? `${b.entry_date}T12:00:00`).getTime();
+
+      return bTime - aTime;
+    })
+    .filter((row) => {
+      const key = [
+        row.title.trim().toLowerCase(),
+        row.entry_date,
+        row.type,
+        (row.notes ?? "").trim().toLowerCase(),
+        (row.recipe ?? "").trim().toLowerCase()
+      ].join("|");
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => new Date(`${b.entry_date}T12:00:00`).getTime() - new Date(`${a.entry_date}T12:00:00`).getTime());
 }

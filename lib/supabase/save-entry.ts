@@ -27,18 +27,28 @@ export async function saveEntryToSupabase(supabase: SupabaseClient, entry: FoodE
     throw entryError;
   }
 
+  const { data: oldPhotoRows } = await supabase
+    .from("photos")
+    .select("storage_path")
+    .eq("food_entry_id", entry.id);
+  const oldStoragePaths = ((oldPhotoRows ?? []) as Array<{ storage_path: string | null }>)
+    .map((photo) => photo.storage_path)
+    .filter(Boolean) as string[];
+  const nextStoragePaths = new Set(entry.photos.map((photo) => photo.storagePath).filter(Boolean));
+
+  const { error: deletePhotosError } = await supabase.from("photos").delete().eq("food_entry_id", entry.id);
+
+  if (deletePhotosError) {
+    throw deletePhotosError;
+  }
+
   if (entry.photos.length) {
-    const { error: deletePhotosError } = await supabase.from("photos").delete().eq("food_entry_id", entry.id);
-
-    if (deletePhotosError) {
-      throw deletePhotosError;
-    }
-
     const { error: photoError } = await supabase.from("photos").insert(
       entry.photos.map((photo) => ({
         food_entry_id: entry.id,
         image_url: photo.imageUrl,
         thumbnail_url: photo.thumbnailUrl ?? photo.imageUrl,
+        storage_path: photo.storagePath ?? null,
         uploaded_by: null
       }))
     );
@@ -48,13 +58,33 @@ export async function saveEntryToSupabase(supabase: SupabaseClient, entry: FoodE
     }
   }
 
+  const removedStoragePaths = oldStoragePaths.filter((path) => !nextStoragePaths.has(path));
+
+  if (removedStoragePaths.length) {
+    await supabase.storage.from("food-photos").remove(removedStoragePaths);
+  }
+
+  const { error: deleteRelationsError } = await supabase.from("food_entry_tags").delete().eq("food_entry_id", entry.id);
+
+  if (deleteRelationsError) {
+    throw deleteRelationsError;
+  }
+
   if (!entry.tags.length) {
+    return;
+  }
+
+  const uniqueTags = Array.from(
+    new Map(entry.tags.map((name) => [canonicalTagKey(name), name.trim()])).values()
+  ).filter(Boolean);
+
+  if (!uniqueTags.length) {
     return;
   }
 
   const { data: tagRows, error: tagError } = await supabase
     .from("tags")
-    .upsert(entry.tags.map((name) => ({ name })), { onConflict: "name" })
+    .upsert(uniqueTags.map((name) => ({ name })), { onConflict: "name" })
     .select("id,name");
 
   if (tagError) {
@@ -63,12 +93,6 @@ export async function saveEntryToSupabase(supabase: SupabaseClient, entry: FoodE
 
   if (!tagRows?.length) {
     return;
-  }
-
-  const { error: deleteRelationsError } = await supabase.from("food_entry_tags").delete().eq("food_entry_id", entry.id);
-
-  if (deleteRelationsError) {
-    throw deleteRelationsError;
   }
 
   const { error: relationError } = await supabase.from("food_entry_tags").insert(
@@ -81,4 +105,42 @@ export async function saveEntryToSupabase(supabase: SupabaseClient, entry: FoodE
   if (relationError) {
     throw relationError;
   }
+}
+
+export async function deleteEntryFromSupabase(supabase: SupabaseClient, entryId: string) {
+  const { data: photoRows } = await supabase
+    .from("photos")
+    .select("storage_path")
+    .eq("food_entry_id", entryId);
+  const storagePaths = ((photoRows ?? []) as Array<{ storage_path: string | null }>)
+    .map((photo) => photo.storage_path)
+    .filter(Boolean) as string[];
+
+  const { error: tagError } = await supabase.from("food_entry_tags").delete().eq("food_entry_id", entryId);
+
+  if (tagError) {
+    throw tagError;
+  }
+
+  const { error: photoError } = await supabase.from("photos").delete().eq("food_entry_id", entryId);
+
+  if (photoError) {
+    throw photoError;
+  }
+
+  const { error: entryError } = await supabase.from("food_entries").delete().eq("id", entryId);
+
+  if (entryError) {
+    throw entryError;
+  }
+
+  if (storagePaths.length) {
+    await supabase.storage.from("food-photos").remove(storagePaths);
+  }
+}
+
+function canonicalTagKey(tag: string) {
+  const key = tag.trim().toLowerCase();
+
+  return key === "favorites" ? "favorite" : key;
 }

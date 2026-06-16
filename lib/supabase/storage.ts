@@ -122,3 +122,23 @@ export async function uploadFoodPhotos({
 
   return uploaded;
 }
+
+export function photoFromUpload({
+  entryId,
+  title,
+  upload,
+  index
+}: {
+  entryId: string;
+  title: string;
+  upload: Awaited<ReturnType<typeof uploadFoodPhotos>>[number];
+  index: number;
+}) {
+  return {
+    id: `${entryId}-photo-${index + 1}-${crypto.randomUUID()}`,
+    imageUrl: upload.image_url,
+    thumbnailUrl: upload.thumbnail_url ?? undefined,
+    storagePath: upload.storage_path,
+    alt: title
+  };
+}

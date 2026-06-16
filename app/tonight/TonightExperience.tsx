@@ -7,7 +7,6 @@ import { FoodEntryModal } from "@/components/entry/FoodEntryModal";
 import { ProfileButton } from "@/components/profile/ProfileButton";
 import { cn } from "@/lib/utils/cn";
 import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
-import { applyEntryOverrides } from "@/lib/utils/local-entry-storage";
 
 type TonightExperienceProps = {
   entries: FoodEntry[];
@@ -102,7 +101,7 @@ export function TonightExperience({ entries }: TonightExperienceProps) {
   const visibleCards = deck.slice(index, index + 4);
 
   useEffect(() => {
-    setEditableEntries(applyEntryOverrides(entries));
+    setEditableEntries(entries);
   }, [entries]);
 
   useEffect(() => {

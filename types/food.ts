@@ -10,6 +10,7 @@ export type FoodPhoto = {
   id: string;
   imageUrl: string;
   thumbnailUrl?: string;
+  storagePath?: string;
   alt: string;
 };
 
