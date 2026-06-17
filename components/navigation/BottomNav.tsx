@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, House, Sparkles } from "lucide-react";
@@ -13,6 +14,11 @@ const items = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const [activeHref, setActiveHref] = useState(pathname);
+
+  useEffect(() => {
+    setActiveHref(pathname);
+  }, [pathname]);
 
   return (
     <nav
@@ -22,17 +28,19 @@ export function BottomNav() {
       {items.map((item) => {
         const Icon = item.icon;
         const active =
-          pathname === item.href ||
-          (item.href !== "/" && pathname.startsWith(item.href));
+          activeHref === item.href ||
+          (item.href !== "/" && activeHref.startsWith(item.href));
 
         return (
           <Link
             key={item.href}
             href={item.href}
+            prefetch
             title={item.label}
+            onClick={() => setActiveHref(item.href)}
             className={cn(
               "tap-scale relative z-10 flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-[11px] font-semibold text-muted transition",
-              active && "bg-white/82 text-ink shadow-[0_10px_28px_rgba(38,30,21,0.12),inset_0_1px_0_rgba(255,255,255,0.9)]"
+              active && "bg-white/86 text-ink"
             )}
             aria-current={active ? "page" : undefined}
           >

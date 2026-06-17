@@ -1,26 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { FoodEntry } from "@/types/food";
 import { FoodEntryModal } from "@/components/entry/FoodEntryModal";
 import { ProfileButton } from "@/components/profile/ProfileButton";
 import { RecipeGrid } from "@/components/recipes/RecipeGrid";
+import { CoverSkeleton } from "@/components/ui/EntrySkeletons";
+import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { isRecipeCandidate } from "@/lib/utils/entries";
 
-type RecipesExperienceProps = {
-  entries: FoodEntry[];
-};
-
-export function RecipesExperience({ entries }: RecipesExperienceProps) {
-  const [editableEntries, setEditableEntries] = useState(entries);
+export function RecipesExperience() {
   const [selectedEntry, setSelectedEntry] = useState<FoodEntry | null>(null);
-
-  useEffect(() => {
-    setEditableEntries(entries);
-  }, [entries]);
+  const { entries, status, error, upsertEntry, removeEntry } = useFoodEntries();
+  const showSkeleton = !entries.length && status !== "error";
 
   const recipeEntries = useMemo(() => {
-    return editableEntries
+    return entries
       .filter(isRecipeCandidate)
       .sort((a, b) => {
         const ratingDifference = (b.rating ?? 0) - (a.rating ?? 0);
@@ -29,15 +24,15 @@ export function RecipesExperience({ entries }: RecipesExperienceProps) {
 
         return new Date(`${b.entryDate}T12:00:00`).getTime() - new Date(`${a.entryDate}T12:00:00`).getTime();
       });
-  }, [editableEntries]);
+  }, [entries]);
 
   function updateEntry(nextEntry: FoodEntry) {
-    setEditableEntries((current) => current.map((entry) => (entry.id === nextEntry.id ? nextEntry : entry)));
+    upsertEntry(nextEntry);
     setSelectedEntry(nextEntry);
   }
 
   function deleteEntry(entryId: string) {
-    setEditableEntries((current) => current.filter((entry) => entry.id !== entryId));
+    removeEntry(entryId);
     setSelectedEntry(null);
   }
 
@@ -52,11 +47,13 @@ export function RecipesExperience({ entries }: RecipesExperienceProps) {
         </div>
       </header>
 
-      {recipeEntries.length ? (
+      {showSkeleton ? (
+        <CoverSkeleton />
+      ) : recipeEntries.length ? (
         <RecipeGrid entries={recipeEntries} onSelect={setSelectedEntry} />
       ) : (
         <div className="rounded-lg border border-border bg-white/72 p-8 text-center text-muted">
-          Nothing matches this filter yet.
+          {error || "Nothing matches this filter yet."}
         </div>
       )}
 

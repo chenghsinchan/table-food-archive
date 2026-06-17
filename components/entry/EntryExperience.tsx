@@ -144,7 +144,7 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
 
   return (
     <main className="mx-auto w-full max-w-[820px] px-0 pb-28 pt-3 sm:px-4 sm:pt-8">
-      <article className="soft-fade overflow-hidden rounded-t-[28px] bg-[#fffefa] shadow-[0_26px_80px_rgba(17,17,17,0.16)] sm:rounded-[28px]">
+      <article className="soft-fade overflow-hidden rounded-t-[28px] bg-[#fffefa] shadow-sm sm:rounded-[28px]">
         <header className="flex items-center justify-between border-b border-border bg-[#fffefa] px-6 py-5">
           <div className="flex min-w-0 items-center gap-3">
             <span className="size-3 shrink-0 rounded-full bg-accent" />

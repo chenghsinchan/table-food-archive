@@ -46,7 +46,7 @@ export function EntryDetail({ entry }: EntryDetailProps) {
                 <dd className="mt-1 inline-flex items-center gap-2">
                   <span className="grid size-6 overflow-hidden rounded-full bg-ink text-[10px] text-white">
                     {contributor.avatarUrl ? (
-                      <img src={contributor.avatarUrl} alt="" className="size-full object-cover" />
+                      <img src={contributor.avatarUrl} alt="" loading="lazy" className="size-full object-cover" />
                     ) : (
                       <span className="grid size-full place-items-center">{contributor.initials}</span>
                     )}
@@ -82,7 +82,14 @@ export function EntryDetail({ entry }: EntryDetailProps) {
           {extraPhotos.length ? (
             <section className="grid grid-cols-2 gap-3">
               {extraPhotos.map((photo) => (
-                <img key={photo.id} src={photo.imageUrl} alt={photo.alt} className="aspect-[4/5] rounded-lg object-cover" />
+                <img
+                  key={photo.id}
+                  src={photo.imageUrl}
+                  alt={photo.alt}
+                  loading="lazy"
+                  sizes="(min-width: 1024px) 380px, 50vw"
+                  className="aspect-[4/5] rounded-lg object-cover"
+                />
               ))}
             </section>
           ) : null}

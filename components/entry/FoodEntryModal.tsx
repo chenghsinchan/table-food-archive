@@ -257,7 +257,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-ink/55 p-0 sm:place-items-center sm:p-4">
-      <article className="soft-fade max-h-[94dvh] w-full max-w-[760px] overflow-y-auto rounded-t-[28px] bg-[#fffefa] shadow-[0_30px_90px_rgba(0,0,0,0.28)] [scrollbar-width:none] sm:rounded-[28px] [&::-webkit-scrollbar]:hidden">
+      <article className="soft-fade max-h-[94dvh] w-full max-w-[760px] overflow-y-auto rounded-t-[28px] bg-[#fffefa] shadow-sm [scrollbar-width:none] sm:rounded-[28px] [&::-webkit-scrollbar]:hidden">
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-[#fffefa] px-6 py-5">
           <div className="flex items-center gap-3">
             <span className="size-3 rounded-full bg-accent" />
@@ -411,7 +411,13 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
               <div className="grid grid-cols-3 gap-3">
                 {draft.photos.map((photo) => (
                   <div key={photo.id} className="group relative overflow-hidden rounded-lg">
-                    <img src={photo.thumbnailUrl ?? photo.imageUrl} alt={photo.alt} className="aspect-[4/5] w-full object-cover" />
+                    <img
+                      src={photo.thumbnailUrl ?? photo.imageUrl}
+                      alt={photo.alt}
+                      loading="lazy"
+                      sizes="160px"
+                      className="aspect-[4/5] w-full object-cover"
+                    />
                     <button
                       type="button"
                       onClick={() => setDraft((current) => ({ ...current, photos: current.photos.filter((item) => item.id !== photo.id) }))}
@@ -424,7 +430,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
                 ))}
                 {newPhotoPreviews.map(({ file, url }) => (
                   <div key={`${file.name}-${file.lastModified}`} className="group relative overflow-hidden rounded-lg">
-                    <img src={url} alt={file.name} className="aspect-[4/5] w-full object-cover" />
+                    <img src={url} alt={file.name} loading="lazy" sizes="160px" className="aspect-[4/5] w-full object-cover" />
                     <button
                       type="button"
                       onClick={() => setDraft((current) => ({ ...current, files: current.files.filter((item) => item !== file) }))}

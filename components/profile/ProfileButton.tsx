@@ -77,10 +77,10 @@ export function ProfileButton() {
       href="/profile"
       aria-label="Open profile"
       title="Profile"
-      className="tap-scale liquid-glass grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-white/72 text-ink shadow-sm"
+      className="tap-scale grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-white/82 text-ink"
     >
       {profile.avatarUrl ? (
-        <img src={profile.avatarUrl} alt="" className="size-full object-cover" />
+        <img src={profile.avatarUrl} alt="" loading="lazy" className="size-full object-cover" />
       ) : profile.name ? (
         <span className="text-sm font-semibold">{initialsFor(profile.name)}</span>
       ) : (

@@ -161,7 +161,7 @@ export function ProfileEditor() {
       <button
         type="submit"
         disabled={saving}
-        className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-pill bg-ink px-5 text-base font-semibold text-white shadow-[0_18px_48px_rgba(17,17,17,0.18)] disabled:cursor-wait disabled:opacity-70"
+        className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-pill bg-ink px-5 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-70"
       >
         <Check aria-hidden="true" size={18} />
         {saving ? "Saving..." : "Save profile"}

@@ -1,4 +1,4 @@
-const CACHE_NAME = "table-assets-v5";
+const CACHE_NAME = "table-assets-v6";
 const SHELL_URLS = ["/manifest.json", "/icon-192-v2.png", "/icon-512-v2.png", "/apple-touch-icon-v2.png"];
 
 self.addEventListener("install", (event) => {
@@ -20,12 +20,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  const url = new URL(event.request.url);
+
+  if (url.pathname.startsWith("/api/") || url.hostname.includes("supabase.co")) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   if (event.request.mode === "navigate") {
     event.respondWith(fetch(event.request));
     return;
   }
 
-  event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
-  );
+  if (SHELL_URLS.includes(url.pathname)) {
+    event.respondWith(caches.match(event.request).then((cached) => cached ?? fetch(event.request)));
+  }
 });

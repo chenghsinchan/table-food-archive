@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { createClient } from "@/lib/supabase/client";
 import { saveEntryToSupabase } from "@/lib/supabase/save-entry";
 import { clearLocalEntries, readLocalEntries } from "@/lib/utils/local-entry-storage";
@@ -8,6 +9,8 @@ import { clearLocalEntries, readLocalEntries } from "@/lib/utils/local-entry-sto
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function LocalArchiveSync() {
+  const { refreshEntries } = useFoodEntries();
+
   useEffect(() => {
     let active = true;
 
@@ -54,6 +57,7 @@ export function LocalArchiveSync() {
         }
 
         clearLocalEntries();
+        await refreshEntries({ background: true, force: true });
       } catch (error) {
         console.warn("Could not sync local TABLE entries to Supabase.", error);
       }
@@ -64,7 +68,7 @@ export function LocalArchiveSync() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [refreshEntries]);
 
   return null;
 }

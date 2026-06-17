@@ -5,12 +5,11 @@ import { Heart, RotateCcw, X } from "lucide-react";
 import type { FoodEntry } from "@/types/food";
 import { FoodEntryModal } from "@/components/entry/FoodEntryModal";
 import { ProfileButton } from "@/components/profile/ProfileButton";
+import { DeckSkeleton } from "@/components/ui/EntrySkeletons";
+import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { cn } from "@/lib/utils/cn";
 import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
-
-type TonightExperienceProps = {
-  entries: FoodEntry[];
-};
+import { thumbnailSrc } from "@/lib/utils/photos";
 
 type DragState = {
   id: number;
@@ -62,7 +61,7 @@ function DeckCard({
       onPointerUp={isTop ? onPointerUp : undefined}
       onPointerCancel={isTop ? onPointerUp : undefined}
       className={cn(
-        "absolute inset-0 overflow-hidden rounded-[30px] border border-white/60 bg-ink text-left shadow-[0_28px_82px_rgba(17,17,17,0.18)] transition-[filter,opacity] duration-300",
+        "absolute inset-0 overflow-hidden rounded-[30px] border border-white/60 bg-ink text-left shadow-sm transition-opacity duration-150",
         isTop ? "cursor-grab touch-none active:cursor-grabbing" : "pointer-events-none opacity-60",
         !isTop && "pattern-riso"
       )}
@@ -71,7 +70,14 @@ function DeckCard({
         transform: `translate3d(${dragX}px, ${translateY + dragY}px, 0) rotate(${rotation}deg) scale(${scale})`
       }}
     >
-      <img src={photo.imageUrl} alt={photo.alt} className="size-full object-cover" draggable={false} />
+      <img
+        src={thumbnailSrc(photo)}
+        alt={photo.alt}
+        loading="lazy"
+        sizes="min(100vw, 390px)"
+        className="size-full object-cover"
+        draggable={false}
+      />
       {!isTop ? <div className="absolute inset-0 bg-white/42" /> : null}
       <div className="absolute inset-0 bg-gradient-to-t from-black/76 via-black/16 to-transparent" />
       <article className="absolute inset-x-0 bottom-0 space-y-3 p-5 text-white">
@@ -90,19 +96,16 @@ function DeckCard({
   );
 }
 
-export function TonightExperience({ entries }: TonightExperienceProps) {
+export function TonightExperience() {
   const [seed, setSeed] = useState(7);
   const [index, setIndex] = useState(0);
   const [drag, setDrag] = useState<DragState | null>(null);
-  const [editableEntries, setEditableEntries] = useState(entries);
   const [selectedEntry, setSelectedEntry] = useState<FoodEntry | null>(null);
-  const availableEntries = useMemo(() => editableEntries, [editableEntries]);
+  const { entries, status, upsertEntry, removeEntry } = useFoodEntries();
+  const availableEntries = useMemo(() => entries, [entries]);
   const deck = useMemo(() => shuffleEntries(availableEntries, seed), [availableEntries, seed]);
   const visibleCards = deck.slice(index, index + 4);
-
-  useEffect(() => {
-    setEditableEntries(entries);
-  }, [entries]);
+  const showSkeleton = !entries.length && status !== "error";
 
   useEffect(() => {
     setIndex(0);
@@ -115,12 +118,12 @@ export function TonightExperience({ entries }: TonightExperienceProps) {
   }, [deck.length, index]);
 
   function updateEntry(nextEntry: FoodEntry) {
-    setEditableEntries((current) => current.map((entry) => (entry.id === nextEntry.id ? nextEntry : entry)));
+    upsertEntry(nextEntry);
     setSelectedEntry(nextEntry);
   }
 
   function deleteEntry(entryId: string) {
-    setEditableEntries((current) => current.filter((entry) => entry.id !== entryId));
+    removeEntry(entryId);
     setSelectedEntry(null);
   }
 
@@ -183,6 +186,22 @@ export function TonightExperience({ entries }: TonightExperienceProps) {
     }
 
     setDrag(null);
+  }
+
+  if (showSkeleton) {
+    return (
+      <main className="relative mx-auto flex min-h-[calc(100dvh-9rem)] w-full max-w-[1180px] flex-col items-center px-4 pb-6 pt-1 sm:px-6 lg:px-8">
+        <header className="flex w-full items-end justify-between gap-4 pb-5 pt-2">
+          <h1 className="table-wordmark text-[58px] leading-none text-ink sm:text-[86px]">
+            TABLE
+          </h1>
+          <div className="flex items-center pb-1">
+            <ProfileButton />
+          </div>
+        </header>
+        <DeckSkeleton />
+      </main>
+    );
   }
 
   if (!deck.length) {

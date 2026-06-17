@@ -5,6 +5,7 @@ import type { FoodEntry } from "@/types/food";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { cn } from "@/lib/utils/cn";
 import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
+import { thumbnailSrc } from "@/lib/utils/photos";
 
 type RecipeGridProps = {
   entries: FoodEntry[];
@@ -47,9 +48,9 @@ function RecipeCover({
       type="button"
       onClick={() => onSelect(entry)}
       className={cn(
-        "group relative h-[clamp(350px,58dvh,560px)] max-h-[calc(100dvh-230px)] w-[78vw] max-w-[390px] shrink-0 snap-center overflow-hidden rounded-[26px] bg-ink text-left shadow-[0_28px_72px_rgba(17,17,17,0.16)] outline-none transition-[transform,opacity,filter] duration-500 ease-out focus:outline-none focus-visible:outline-none sm:w-[380px]",
+        "group relative h-[clamp(350px,58dvh,560px)] max-h-[calc(100dvh-230px)] w-[78vw] max-w-[390px] shrink-0 snap-center overflow-hidden rounded-[26px] bg-ink text-left shadow-sm outline-none transition-[transform,opacity] duration-200 ease-out focus:outline-none focus-visible:outline-none sm:w-[380px]",
         index > 0 && "-ml-[22vw] sm:-ml-[150px]",
-        isActive ? "opacity-100" : "opacity-70 saturate-[0.82]",
+        isActive ? "opacity-100" : "opacity-70",
         Math.abs(offset) > 3 && "opacity-35"
       )}
       style={{
@@ -58,10 +59,11 @@ function RecipeCover({
       }}
     >
       <img
-        src={photo.imageUrl}
+        src={thumbnailSrc(photo)}
         alt={photo.alt}
         loading="lazy"
-        className="size-full object-cover transition duration-700 group-hover:scale-[1.03]"
+        sizes="min(78vw, 390px)"
+        className="size-full object-cover"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/76 via-black/18 to-transparent" />
       <article className="absolute inset-x-0 bottom-0 min-h-[210px] space-y-4 p-5 text-white">
@@ -140,7 +142,7 @@ export function RecipeGrid({ entries, onSelect }: RecipeGridProps) {
       <div
         ref={scrollerRef}
         onScroll={updateActiveFromScroll}
-        className="flex h-full snap-x snap-mandatory items-center overflow-x-auto px-[calc(50vw_-_39vw)] pb-28 pt-1 [perspective:1100px] [scroll-behavior:smooth] [scrollbar-width:none] sm:px-[calc(50%_-_190px)] [&::-webkit-scrollbar]:hidden"
+        className="flex h-full snap-x snap-mandatory items-center overflow-x-auto px-[calc(50vw_-_39vw)] pb-28 pt-1 [perspective:900px] [scrollbar-width:none] sm:px-[calc(50%_-_190px)] [&::-webkit-scrollbar]:hidden"
       >
         {entries.map((entry, index) => (
           <RecipeCover

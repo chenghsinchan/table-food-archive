@@ -34,6 +34,8 @@ export function PhotoCarousel({ photos }: PhotoCarouselProps) {
             key={photo.id}
             src={photo.imageUrl}
             alt={photo.alt}
+            loading="lazy"
+            sizes="(min-width: 768px) 760px, 100vw"
             className="max-h-[54dvh] min-w-full snap-center object-cover"
             draggable={false}
           />
@@ -45,7 +47,7 @@ export function PhotoCarousel({ photos }: PhotoCarouselProps) {
           <button
             type="button"
             onClick={() => scroll("left")}
-            className="tap-scale absolute left-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/42 text-white backdrop-blur"
+            className="tap-scale absolute left-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/48 text-white"
             aria-label="Previous photo"
           >
             <ChevronLeft aria-hidden="true" size={21} strokeWidth={2} />
@@ -53,7 +55,7 @@ export function PhotoCarousel({ photos }: PhotoCarouselProps) {
           <button
             type="button"
             onClick={() => scroll("right")}
-            className="tap-scale absolute right-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/42 text-white backdrop-blur"
+            className="tap-scale absolute right-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/48 text-white"
             aria-label="Next photo"
           >
             <ChevronRight aria-hidden="true" size={21} strokeWidth={2} />

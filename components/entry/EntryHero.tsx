@@ -13,7 +13,13 @@ export function EntryHero({ entry }: EntryHeroProps) {
   return (
     <section className="relative -mt-5 overflow-hidden sm:-mt-8">
       <div className="h-[72dvh] min-h-[520px]">
-        <img src={hero.imageUrl} alt={hero.alt} className="size-full object-cover" />
+        <img
+          src={hero.imageUrl}
+          alt={hero.alt}
+          fetchPriority="high"
+          sizes="100vw"
+          className="size-full object-cover"
+        />
       </div>
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/76 via-black/30 to-transparent">
         <div className="table-container pb-10 pt-32 text-white">

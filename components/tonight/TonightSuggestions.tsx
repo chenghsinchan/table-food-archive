@@ -3,6 +3,7 @@ import type { FoodEntry } from "@/types/food";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { formatShortDate } from "@/lib/utils/date";
 import { entryLocation } from "@/lib/utils/entries";
+import { thumbnailSrc } from "@/lib/utils/photos";
 
 type TonightSuggestionsProps = {
   entries: FoodEntry[];
@@ -32,9 +33,15 @@ function TonightCard({ entry }: { entry: FoodEntry }) {
   return (
     <Link
       href={`/entry/${entry.id}`}
-      className="tap-scale block overflow-hidden rounded-[18px] border border-border bg-white shadow-[0_18px_52px_rgba(17,17,17,0.08)]"
+      className="tap-scale block overflow-hidden rounded-[18px] border border-border bg-white shadow-sm"
     >
-      <img src={photo.imageUrl} alt={photo.alt} loading="lazy" className="h-56 w-full object-cover sm:h-72" />
+      <img
+        src={thumbnailSrc(photo)}
+        alt={photo.alt}
+        loading="lazy"
+        sizes="(min-width: 640px) 640px, 100vw"
+        className="h-56 w-full object-cover sm:h-72"
+      />
       <article className="space-y-4 p-5">
         <div className="flex items-center justify-between gap-4">
           <p className="truncate font-mono text-xs uppercase tracking-[0.18em] text-muted">

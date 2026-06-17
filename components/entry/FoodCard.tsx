@@ -1,6 +1,7 @@
 import type { FoodEntry } from "@/types/food";
 import { cn } from "@/lib/utils/cn";
 import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
+import { thumbnailSrc } from "@/lib/utils/photos";
 
 const aspectByIndex = [
   "aspect-[4/5]",
@@ -13,11 +14,10 @@ const aspectByIndex = [
 type FoodCardProps = {
   entry: FoodEntry;
   index: number;
-  priority?: boolean;
   onSelect: (entry: FoodEntry) => void;
 };
 
-export function FoodCard({ entry, index, priority, onSelect }: FoodCardProps) {
+export function FoodCard({ entry, index, onSelect }: FoodCardProps) {
   const photo = entry.photos[0];
   const place = entry.restaurantName ? entryLocation(entry) : entryTypeLabel(entry);
 
@@ -25,15 +25,16 @@ export function FoodCard({ entry, index, priority, onSelect }: FoodCardProps) {
     <button
       type="button"
       onClick={() => onSelect(entry)}
-      className="group mb-1.5 block w-full break-inside-avoid overflow-hidden rounded-lg bg-ink text-left shadow-[0_16px_40px_rgba(17,17,17,0.12)] outline-none focus:outline-none focus-visible:outline-none"
+      className="group mb-1.5 block w-full break-inside-avoid overflow-hidden rounded-lg bg-ink text-left outline-none focus:outline-none focus-visible:outline-none"
     >
       <article className="relative">
         <img
-          src={photo.imageUrl}
+          src={thumbnailSrc(photo)}
           alt={photo.alt}
-          loading={priority ? "eager" : "lazy"}
+          loading="lazy"
+          sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
           className={cn(
-            "w-full object-cover transition duration-700 group-hover:scale-[1.025]",
+            "w-full object-cover",
             aspectByIndex[index % aspectByIndex.length]
           )}
         />

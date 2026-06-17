@@ -123,7 +123,7 @@ export function EntryForm({ entries }: EntryFormProps) {
     <form className="space-y-5" onSubmit={saveEntry}>
       <PhotoUploader onFilesChange={setFiles} />
 
-      <section className="rounded-lg bg-white/72 p-4 shadow-[0_18px_48px_rgba(18,21,21,0.08)] sm:p-5">
+      <section className="rounded-lg bg-white/72 p-4 shadow-sm sm:p-5">
         <div className="grid gap-4">
           <label className="grid gap-2">
             <span className="text-sm font-medium text-muted">Title</span>
@@ -252,7 +252,7 @@ export function EntryForm({ entries }: EntryFormProps) {
       <button
         type="submit"
         disabled={status === "saving"}
-        className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-base font-semibold text-white shadow-[0_18px_48px_rgba(18,21,21,0.18)] disabled:cursor-wait disabled:opacity-70"
+        className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-70"
       >
         <Save aria-hidden="true" size={18} />
         {status === "saving" ? "Saving..." : status === "saved" ? "Saved" : "Save memory"}

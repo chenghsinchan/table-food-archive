@@ -3,6 +3,7 @@ import type { FoodEntry } from "@/types/food";
 import { formatShortDate } from "@/lib/utils/date";
 import { entryLocation } from "@/lib/utils/entries";
 import { RatingInput } from "@/components/ui/RatingInput";
+import { thumbnailSrc } from "@/lib/utils/photos";
 
 type RecommendationCardProps = {
   entry: FoodEntry;
@@ -14,9 +15,15 @@ export function RecommendationCard({ entry }: RecommendationCardProps) {
   return (
     <Link
       href={`/entry/${entry.id}`}
-      className="tap-scale grid overflow-hidden rounded-lg bg-white shadow-[0_18px_48px_rgba(18,21,21,0.10)] sm:grid-cols-[0.96fr_1fr]"
+      className="tap-scale grid overflow-hidden rounded-lg bg-white shadow-sm sm:grid-cols-[0.96fr_1fr]"
     >
-      <img src={photo.imageUrl} alt={photo.alt} loading="lazy" className="h-72 w-full object-cover sm:h-full" />
+      <img
+        src={thumbnailSrc(photo)}
+        alt={photo.alt}
+        loading="lazy"
+        sizes="(min-width: 640px) 50vw, 100vw"
+        className="h-72 w-full object-cover sm:h-full"
+      />
       <article className="flex min-h-72 flex-col justify-between p-5">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">

@@ -32,7 +32,7 @@ export function PhotoUploader({ onFilesChange }: PhotoUploaderProps) {
         event.preventDefault();
         addFiles(event.dataTransfer.files);
       }}
-      className="rounded-lg border border-dashed border-border bg-white/68 p-3 shadow-[0_18px_48px_rgba(18,21,21,0.08)]"
+      className="rounded-lg border border-dashed border-border bg-white/72 p-3"
     >
       <div className="grid min-h-72 place-items-center rounded-lg bg-surface-warm/72 p-4 text-center">
         {previews.length ? (
@@ -43,7 +43,7 @@ export function PhotoUploader({ onFilesChange }: PhotoUploaderProps) {
                 <button
                   type="button"
                   onClick={() => removeFile(file)}
-                  className="absolute right-2 top-2 grid size-9 place-items-center rounded-full bg-white/78 text-ink opacity-100 shadow-sm backdrop-blur transition hover:bg-white sm:opacity-0 sm:group-hover:opacity-100"
+                  className="absolute right-2 top-2 grid size-9 place-items-center rounded-full bg-white/86 text-ink opacity-100 transition hover:bg-white sm:opacity-0 sm:group-hover:opacity-100"
                   aria-label={`Remove ${file.name}`}
                 >
                   <Trash2 aria-hidden="true" size={16} />
