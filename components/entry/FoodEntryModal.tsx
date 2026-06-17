@@ -35,8 +35,12 @@ type DraftEntry = {
 export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwipeUp }: FoodEntryModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const sheetRef = useRef<HTMLElement | null>(null);
-  const gestureRef = useRef({ startY: 0, startX: 0, startScrollTop: 0, active: false });
-  const scrollStateRef = useRef({ lastTop: 0, maxTop: 0 });
+  const gestureRef = useRef<{ startY: number; startX: number; active: boolean; endY: number | null }>({
+    startY: 0,
+    startX: 0,
+    active: false,
+    endY: null
+  });
   const wheelDistanceRef = useRef(0);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<DraftEntry>({
@@ -102,6 +106,14 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
     return !target.closest("button, input, textarea, select, a");
   }
 
+  function isAtScrollEnd(element: HTMLElement) {
+    return element.scrollTop + element.clientHeight >= element.scrollHeight - 8;
+  }
+
+  function isScrollable(element: HTMLElement) {
+    return element.scrollHeight - element.clientHeight > 8;
+  }
+
   function handlePointerDown(event: React.PointerEvent<HTMLElement>) {
     if (!canCloseFromGesture(event.target)) {
       return;
@@ -110,34 +122,46 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
     gestureRef.current = {
       startY: event.clientY,
       startX: event.clientX,
-      startScrollTop: sheetRef.current?.scrollTop ?? 0,
-      active: true
+      active: true,
+      endY: null
     };
   }
 
   function handlePointerMove(event: React.PointerEvent<HTMLElement>) {
     const gesture = gestureRef.current;
+    const sheet = sheetRef.current;
 
-    if (!gesture.active || !canCloseFromGesture(event.target)) {
+    if (!gesture.active || !sheet || !canCloseFromGesture(event.target)) {
       return;
     }
 
-    const currentTop = sheetRef.current?.scrollTop ?? 0;
-    const deltaY = event.clientY - gesture.startY;
     const deltaX = Math.abs(event.clientX - gesture.startX);
 
-    if (gesture.startScrollTop > 8 || currentTop > 8 || deltaY <= 0) {
+    // While there is still content to scroll, let the card scroll normally.
+    if (isScrollable(sheet) && !isAtScrollEnd(sheet)) {
+      gesture.endY = null;
       return;
     }
 
-    if (deltaY > 86 && deltaY > deltaX * 1.35) {
-      gestureRef.current.active = false;
+    // We are at the end (or the card is short enough not to scroll). Anchor here,
+    // then require a deliberate upward pull past that point to close.
+    if (gesture.endY === null) {
+      gesture.endY = event.clientY;
+      return;
+    }
+
+    const up = gesture.endY - event.clientY;
+
+    if (up > 86 && up > deltaX * 1.35) {
+      gesture.active = false;
+      gesture.endY = null;
       onClose();
     }
   }
 
   function handlePointerEnd() {
     gestureRef.current.active = false;
+    gestureRef.current.endY = null;
   }
 
   function handleWheel(event: React.WheelEvent<HTMLElement>) {
@@ -145,35 +169,19 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
       return;
     }
 
-    const currentTop = event.currentTarget.scrollTop;
+    const sheet = event.currentTarget;
 
-    if (currentTop > 8 || event.deltaY >= 0) {
+    // Only dismiss when scrolling past the end of the content (trackpad/mouse equivalent
+    // of pulling up past the bottom).
+    if (!isAtScrollEnd(sheet) || event.deltaY <= 0) {
       wheelDistanceRef.current = 0;
       return;
     }
 
-    wheelDistanceRef.current += Math.abs(event.deltaY);
+    wheelDistanceRef.current += event.deltaY;
 
     if (wheelDistanceRef.current > 140) {
       wheelDistanceRef.current = 0;
-      onClose();
-    }
-  }
-
-  function handleScroll(event: React.UIEvent<HTMLElement>) {
-    if (!closeOnSwipeUp || isEditing) {
-      return;
-    }
-
-    const currentTop = event.currentTarget.scrollTop;
-    const scrollState = scrollStateRef.current;
-    const wasScrollingBackToTop = currentTop < scrollState.lastTop;
-
-    scrollState.maxTop = Math.max(scrollState.maxTop, currentTop);
-    scrollState.lastTop = currentTop;
-
-    if (scrollState.maxTop > 140 && wasScrollingBackToTop && currentTop <= 2) {
-      scrollState.maxTop = 0;
       onClose();
     }
   }
@@ -317,7 +325,6 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
         onWheel={handleWheel}
-        onScroll={handleScroll}
       >
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-[#fffefa] px-6 py-5">
           <div className="flex items-center gap-3">
