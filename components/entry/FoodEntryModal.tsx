@@ -35,7 +35,8 @@ type DraftEntry = {
 export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwipeUp }: FoodEntryModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const sheetRef = useRef<HTMLElement | null>(null);
-  const gestureRef = useRef({ startY: 0, startX: 0, active: false });
+  const gestureRef = useRef({ startY: 0, startX: 0, startScrollTop: 0, active: false });
+  const scrollStateRef = useRef({ lastTop: 0, maxTop: 0 });
   const wheelDistanceRef = useRef(0);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<DraftEntry>({
@@ -109,6 +110,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
     gestureRef.current = {
       startY: event.clientY,
       startX: event.clientX,
+      startScrollTop: sheetRef.current?.scrollTop ?? 0,
       active: true
     };
   }
@@ -120,11 +122,15 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
       return;
     }
 
+    const currentTop = sheetRef.current?.scrollTop ?? 0;
     const deltaY = event.clientY - gesture.startY;
-    const verticalDistance = Math.abs(deltaY);
     const deltaX = Math.abs(event.clientX - gesture.startX);
 
-    if (verticalDistance > 76 && verticalDistance > deltaX * 1.35) {
+    if (gesture.startScrollTop > 8 || currentTop > 8 || deltaY <= 0) {
+      return;
+    }
+
+    if (deltaY > 86 && deltaY > deltaX * 1.35) {
       gestureRef.current.active = false;
       onClose();
     }
@@ -136,6 +142,13 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
 
   function handleWheel(event: React.WheelEvent<HTMLElement>) {
     if (!canCloseFromGesture(event.target)) {
+      return;
+    }
+
+    const currentTop = event.currentTarget.scrollTop;
+
+    if (currentTop > 8 || event.deltaY >= 0) {
+      wheelDistanceRef.current = 0;
       return;
     }
 
@@ -152,8 +165,15 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
       return;
     }
 
-    if (event.currentTarget.scrollTop > 70) {
-      event.currentTarget.scrollTop = 0;
+    const currentTop = event.currentTarget.scrollTop;
+    const scrollState = scrollStateRef.current;
+    const wasScrollingBackToTop = currentTop < scrollState.lastTop;
+
+    scrollState.maxTop = Math.max(scrollState.maxTop, currentTop);
+    scrollState.lastTop = currentTop;
+
+    if (scrollState.maxTop > 140 && wasScrollingBackToTop && currentTop <= 2) {
+      scrollState.maxTop = 0;
       onClose();
     }
   }
