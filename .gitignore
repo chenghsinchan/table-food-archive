@@ -1,6 +1,11 @@
 node_modules
 .next
 out
+.cache
+dist
+coverage
+.env
+.env.local
 .env*.local
 .vercel
 .npm-cache
