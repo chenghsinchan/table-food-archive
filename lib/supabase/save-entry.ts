@@ -70,21 +70,48 @@ export async function saveEntryToSupabase(supabase: SupabaseClient, entry: FoodE
 }
 
 export async function setEntryLovedInSupabase(supabase: SupabaseClient, entryId: string, isLoved: boolean) {
-  const { error } = await supabase
-    .from("food_entries")
-    .update({ is_loved: isLoved })
-    .eq("id", entryId);
+  try {
+    const { data, error } = await supabase
+      .from("food_entries")
+      .update({ is_loved: isLoved })
+      .eq("id", entryId)
+      .select("id");
 
-  if (!error) {
-    return;
+    if (error) {
+      // Older databases without the is_loved column: mirror the state with a Love tag instead.
+      if (isMissingLovedColumnError(error)) {
+        await setEntryLoveTagInSupabase(supabase, entryId, isLoved);
+        return;
+      }
+
+      throw error;
+    }
+
+    // The update succeeded but changed no rows (row-level security blocked it, or the
+    // row only lives as a Love tag). Fall back to the tag so LOVE still reflects the change.
+    if (!data || data.length === 0) {
+      await setEntryLoveTagInSupabase(supabase, entryId, isLoved);
+    }
+  } catch (caught) {
+    // Supabase errors are plain objects, not Error instances — wrap them so the real
+    // database message reaches the UI instead of a generic fallback.
+    throw asError(caught);
+  }
+}
+
+function asError(value: unknown) {
+  if (value instanceof Error) {
+    return value;
   }
 
-  if (isMissingLovedColumnError(error)) {
-    await setEntryLoveTagInSupabase(supabase, entryId, isLoved);
-    return;
+  if (value && typeof value === "object") {
+    const record = value as { message?: string; details?: string; hint?: string };
+    const message = [record.message, record.details, record.hint].filter(Boolean).join(" — ");
+
+    return new Error(message || "Could not save this to LOVE.");
   }
 
-  throw error;
+  return new Error("Could not save this to LOVE.");
 }
 
 async function setEntryLoveTagInSupabase(supabase: SupabaseClient, entryId: string, isLoved: boolean) {
