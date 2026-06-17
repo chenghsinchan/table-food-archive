@@ -77,7 +77,7 @@ function transformEntry(row: EntryRow, profiles: Map<string, ProfileRow> = new M
     country: row.country ?? undefined,
     entryDate: row.entry_date,
     wantToRecreate: row.want_to_recreate ?? false,
-    isLoved: row.is_loved ?? false,
+    isLoved: (row.is_loved ?? false) || (row.food_entry_tags ?? []).some((relation) => relation.tags?.name === "Love"),
     createdById: row.created_by ?? undefined,
     addedBy: row.created_by
       ? (() => {

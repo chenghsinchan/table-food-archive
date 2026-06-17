@@ -7,11 +7,11 @@ import { Plus } from "lucide-react";
 export function FloatingAddButton() {
   const pathname = usePathname();
 
-  if (pathname === "/add" || pathname === "/tonight") {
+  if (pathname === "/add" || pathname === "/tonight" || pathname === "/love") {
     return null;
   }
 
-  const returnTo = pathname === "/love" ? "/love" : "/";
+  const returnTo = "/";
 
   return (
     <Link

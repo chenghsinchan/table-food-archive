@@ -151,6 +151,17 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
     }
   }
 
+  function handleScroll(event: React.UIEvent<HTMLElement>) {
+    if (!closeOnSwipeUp || isEditing) {
+      return;
+    }
+
+    if (event.currentTarget.scrollTop > 70) {
+      event.currentTarget.scrollTop = 0;
+      onClose();
+    }
+  }
+
   function startEditing() {
     setDraft({
       title: entry.title,
@@ -290,6 +301,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
         onWheel={handleWheel}
+        onScroll={handleScroll}
       >
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-[#fffefa] px-6 py-5">
           <div className="flex items-center gap-3">

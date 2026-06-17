@@ -75,9 +75,60 @@ export async function setEntryLovedInSupabase(supabase: SupabaseClient, entryId:
     .update({ is_loved: isLoved })
     .eq("id", entryId);
 
-  if (error) {
-    throw error;
+  if (!error) {
+    return;
   }
+
+  if (isMissingLovedColumnError(error)) {
+    await setEntryLoveTagInSupabase(supabase, entryId, isLoved);
+    return;
+  }
+
+  throw error;
+}
+
+async function setEntryLoveTagInSupabase(supabase: SupabaseClient, entryId: string, isLoved: boolean) {
+  const { data: tagRows, error: tagError } = await supabase
+    .from("tags")
+    .upsert({ name: "Love" }, { onConflict: "name" })
+    .select("id")
+    .limit(1);
+
+  if (tagError) {
+    throw tagError;
+  }
+
+  const tagId = tagRows?.[0]?.id;
+
+  if (!tagId) {
+    throw new Error("Could not find the LOVE tag.");
+  }
+
+  if (isLoved) {
+    const { error: relationError } = await supabase
+      .from("food_entry_tags")
+      .upsert({ food_entry_id: entryId, tag_id: tagId }, { onConflict: "food_entry_id,tag_id" });
+
+    if (relationError) {
+      throw relationError;
+    }
+
+    return;
+  }
+
+  const { error: relationError } = await supabase
+    .from("food_entry_tags")
+    .delete()
+    .eq("food_entry_id", entryId)
+    .eq("tag_id", tagId);
+
+  if (relationError) {
+    throw relationError;
+  }
+}
+
+function isMissingLovedColumnError(error: { code?: string; message?: string }) {
+  return error.code === "42703" || Boolean(error.message?.includes("is_loved"));
 }
 
 async function replacePhotos(supabase: SupabaseClient, entry: FoodEntry, removeUnusedStorage: boolean) {
