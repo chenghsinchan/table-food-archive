@@ -23,7 +23,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Main navigation"
-      className="liquid-island fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex w-[min(calc(100%_-_2rem),390px)] -translate-x-1/2 items-center justify-between rounded-[34px] p-2"
+      className="liquid-island fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex w-auto max-w-[calc(100%_-_2rem)] -translate-x-1/2 items-center justify-center gap-1 rounded-[34px] p-2"
     >
       {items.map((item) => {
         const Icon = item.icon;
@@ -40,8 +40,8 @@ export function BottomNav() {
             aria-label={item.label}
             onClick={() => setActiveHref(item.href)}
             className={cn(
-              "tap-scale relative z-10 flex min-h-12 flex-1 items-center justify-center rounded-full px-2 text-muted transition",
-              active && "bg-white/86 text-ink"
+              "tap-scale relative z-10 flex items-center justify-center rounded-full p-3 text-muted transition",
+              active && "bg-ink/[0.07] text-ink"
             )}
             aria-current={active ? "page" : undefined}
           >

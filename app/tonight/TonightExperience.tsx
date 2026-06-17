@@ -258,7 +258,8 @@ export function TonightExperience() {
         </div>
       </header>
 
-      <div className="relative h-[58dvh] min-h-[420px] w-full max-w-[390px]">
+      <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
+        <div className="relative h-[64dvh] min-h-[440px] w-full max-w-[390px]">
         {visibleCards.map((entry, cardIndex) => (
           <DeckCard
             key={`${entry.id}-${index + cardIndex}`}
@@ -272,7 +273,7 @@ export function TonightExperience() {
         )).reverse()}
       </div>
 
-      <div className="relative z-20 mt-5 flex w-full max-w-[260px] items-center justify-between text-ink">
+      <div className="relative z-20 flex w-full max-w-[260px] items-center justify-between text-ink">
         <button
           type="button"
           onClick={() => moveCard("left")}
@@ -298,7 +299,8 @@ export function TonightExperience() {
           <Heart aria-hidden="true" size={20} fill={deck[index]?.isLoved ? "currentColor" : "none"} strokeWidth={2.2} />
         </button>
       </div>
-      {loveError ? <p className="mt-3 max-w-sm text-center text-sm leading-6 text-ink">{loveError}</p> : null}
+        {loveError ? <p className="mt-3 max-w-sm text-center text-sm leading-6 text-ink">{loveError}</p> : null}
+      </div>
 
       {selectedEntry ? (
         <FoodEntryModal
