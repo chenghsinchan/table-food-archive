@@ -69,6 +69,7 @@ export function HomeExperience() {
           onClose={() => setSelectedEntry(null)}
           onUpdate={updateEntry}
           onDelete={deleteEntry}
+          closeOnSwipeUp
         />
       ) : null}
     </div>

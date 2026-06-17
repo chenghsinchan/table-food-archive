@@ -19,6 +19,7 @@ type FoodEntryModalProps = {
   onClose: () => void;
   onUpdate?: (entry: FoodEntry) => void;
   onDelete?: (entryId: string) => void;
+  closeOnSwipeUp?: boolean;
 };
 
 type DraftEntry = {
@@ -31,8 +32,11 @@ type DraftEntry = {
   customTag: string;
 };
 
-export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntryModalProps) {
+export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwipeUp }: FoodEntryModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const sheetRef = useRef<HTMLElement | null>(null);
+  const gestureRef = useRef({ startY: 0, startX: 0, active: false });
+  const wheelDistanceRef = useRef(0);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<DraftEntry>({
     title: entry.title,
@@ -70,6 +74,82 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
       newPhotoPreviews.forEach((preview) => URL.revokeObjectURL(preview.url));
     };
   }, [newPhotoPreviews]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isEditing) {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isEditing, onClose]);
+
+  function canCloseFromGesture(target: EventTarget | null) {
+    if (!closeOnSwipeUp || isEditing) {
+      return false;
+    }
+
+    if (!(target instanceof HTMLElement)) {
+      return true;
+    }
+
+    return !target.closest("button, input, textarea, select, a");
+  }
+
+  function handlePointerDown(event: React.PointerEvent<HTMLElement>) {
+    if (!canCloseFromGesture(event.target)) {
+      return;
+    }
+
+    gestureRef.current = {
+      startY: event.clientY,
+      startX: event.clientX,
+      active: true
+    };
+  }
+
+  function handlePointerMove(event: React.PointerEvent<HTMLElement>) {
+    const gesture = gestureRef.current;
+
+    if (!gesture.active || !canCloseFromGesture(event.target)) {
+      return;
+    }
+
+    const deltaY = gesture.startY - event.clientY;
+    const deltaX = Math.abs(event.clientX - gesture.startX);
+
+    if (deltaY > 82 && deltaY > deltaX * 1.4) {
+      gestureRef.current.active = false;
+      onClose();
+    }
+  }
+
+  function handlePointerEnd() {
+    gestureRef.current.active = false;
+  }
+
+  function handleWheel(event: React.WheelEvent<HTMLElement>) {
+    if (!canCloseFromGesture(event.target)) {
+      return;
+    }
+
+    if (event.deltaY <= 0) {
+      wheelDistanceRef.current = 0;
+      return;
+    }
+
+    wheelDistanceRef.current += event.deltaY;
+
+    if (wheelDistanceRef.current > 140) {
+      wheelDistanceRef.current = 0;
+      onClose();
+    }
+  }
 
   function startEditing() {
     setDraft({
@@ -194,8 +274,23 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-ink/55 p-0 sm:place-items-center sm:p-4">
-      <article className="soft-fade max-h-[94dvh] w-full max-w-[760px] overflow-y-auto rounded-t-[28px] bg-[#fffefa] shadow-sm [scrollbar-width:none] sm:rounded-[28px] [&::-webkit-scrollbar]:hidden">
+    <div
+      className="fixed inset-0 z-50 grid place-items-end bg-ink/55 p-0 sm:place-items-center sm:p-4"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget && !isEditing) {
+          onClose();
+        }
+      }}
+    >
+      <article
+        ref={sheetRef}
+        className="soft-fade max-h-[94dvh] w-full max-w-[760px] overflow-y-auto rounded-t-[28px] bg-[#fffefa] shadow-sm [scrollbar-width:none] sm:rounded-[28px] [&::-webkit-scrollbar]:hidden"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
+        onWheel={handleWheel}
+      >
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-[#fffefa] px-6 py-5">
           <div className="flex items-center gap-3">
             <span className="size-3 rounded-full bg-accent" />
