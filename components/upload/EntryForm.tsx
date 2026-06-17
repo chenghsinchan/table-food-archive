@@ -9,7 +9,6 @@ import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { useSavedTags } from "@/lib/hooks/useSavedTags";
 import { canonicalTagKey, commonTags, uniqueTagNames } from "@/lib/tags";
-import { RatingInput } from "@/components/ui/RatingInput";
 import { TagPill } from "@/components/ui/TagPill";
 import { PhotoUploader } from "@/components/upload/PhotoUploader";
 import type { EntryType, FoodEntry, FoodPhoto } from "@/types/food";
@@ -29,7 +28,6 @@ export function EntryForm({ entries }: EntryFormProps) {
   const searchParams = useSearchParams();
   const { upsertEntry } = useFoodEntries();
   const [tagSourceEntries, setTagSourceEntries] = useState(entries);
-  const [rating, setRating] = useState(0);
   const [type, setType] = useState<EntryType>("home");
   const [wantToRecreate, setWantToRecreate] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
@@ -114,7 +112,7 @@ export function EntryForm({ entries }: EntryFormProps) {
         data: { user }
       } = await supabase.auth.getUser();
       uploadedPhotos = await uploadEntryPhotos({ supabase, entryId, files, title });
-      const entry = buildLocalEntry({ id: entryId, form, title, type, rating, wantToRecreate, tags, photos: uploadedPhotos });
+      const entry = buildLocalEntry({ id: entryId, form, title, type, wantToRecreate, tags, photos: uploadedPhotos });
 
       await createEntryInSupabase(supabase, entry, { createdById: user?.id ?? null });
       upsertEntry({ ...entry, createdById: user?.id ?? undefined });
@@ -161,11 +159,6 @@ export function EntryForm({ entries }: EntryFormProps) {
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="grid gap-2">
-            <span className="text-sm font-medium text-muted">Rating</span>
-            <RatingInput value={rating} onChange={setRating} />
           </div>
 
           <label className="grid gap-2">
@@ -345,7 +338,6 @@ function buildLocalEntry({
   form,
   title,
   type,
-  rating,
   wantToRecreate,
   tags,
   photos
@@ -354,7 +346,6 @@ function buildLocalEntry({
   form: FormData;
   title: string;
   type: EntryType;
-  rating: number;
   wantToRecreate: boolean;
   tags: string[];
   photos: FoodPhoto[];
@@ -363,7 +354,6 @@ function buildLocalEntry({
     id,
     title,
     type,
-    rating: rating || undefined,
     notes: String(form.get("notes") || "").trim() || undefined,
     recipe: String(form.get("recipe") || "").trim() || undefined,
     restaurantName: String(form.get("restaurant") || "").trim() || undefined,

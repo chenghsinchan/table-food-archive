@@ -27,6 +27,7 @@ export type FoodEntry = {
   country?: string;
   entryDate: string;
   wantToRecreate?: boolean;
+  isLoved?: boolean;
   createdById?: string;
   addedBy?: EntryContributor;
   tags: string[];

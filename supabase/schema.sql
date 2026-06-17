@@ -23,6 +23,7 @@ create table if not exists public.food_entries (
   country text,
   entry_date date default current_date,
   want_to_recreate boolean default false,
+  is_loved boolean default false,
   created_by uuid references auth.users(id),
   is_archived boolean default false,
   created_at timestamp with time zone default now(),
@@ -34,6 +35,9 @@ alter table public.food_entries
 
 alter table public.food_entries
   add column if not exists want_to_recreate boolean default false;
+
+alter table public.food_entries
+  add column if not exists is_loved boolean default false;
 
 alter table public.food_entries
   add column if not exists is_archived boolean default false;

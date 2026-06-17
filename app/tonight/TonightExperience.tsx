@@ -8,6 +8,8 @@ import { FoodEntryModal } from "@/components/entry/FoodEntryModal";
 import { ProfileButton } from "@/components/profile/ProfileButton";
 import { DeckSkeleton } from "@/components/ui/EntrySkeletons";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
+import { createClient } from "@/lib/supabase/client";
+import { setEntryLovedInSupabase } from "@/lib/supabase/save-entry";
 import { cn } from "@/lib/utils/cn";
 import { thumbnailSrc } from "@/lib/utils/photos";
 
@@ -81,10 +83,16 @@ function DeckCard({
       />
       {!isTop ? <div className="absolute inset-0 bg-white/42" /> : null}
       <div className="absolute inset-0 bg-gradient-to-t from-black/76 via-black/16 to-transparent" />
+      {entry.isLoved ? (
+        <div className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white/86 text-ink">
+          <Heart aria-hidden="true" size={18} fill="currentColor" strokeWidth={1.8} />
+        </div>
+      ) : null}
       <article className="absolute inset-x-0 bottom-0 space-y-3 p-5 text-white">
         <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/72">{type}</p>
         <h1 className="font-serif text-[38px] italic leading-none">{entry.title}</h1>
         <div className="pattern-divider opacity-80" />
+        {entry.notes ? <p className="line-clamp-2 text-sm leading-6 text-white/84">{entry.notes}</p> : null}
         {tags.length ? <p className="line-clamp-2 text-sm leading-6 text-white/84">{tags.join(" · ")}</p> : null}
       </article>
     </div>
@@ -96,6 +104,7 @@ export function TonightExperience() {
   const [index, setIndex] = useState(0);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<FoodEntry | null>(null);
+  const [loveError, setLoveError] = useState("");
   const { entries, status, upsertEntry, removeEntry } = useFoodEntries();
   const availableEntries = useMemo(() => entries, [entries]);
   const deck = useMemo(() => shuffleEntries(availableEntries, seed), [availableEntries, seed]);
@@ -128,20 +137,49 @@ export function TonightExperience() {
     setDrag(null);
   }
 
-  function moveCard(direction: "left" | "right") {
-    const current = deck[index];
-
-    if (direction === "right" && current) {
-      setSelectedEntry(current);
-      setDrag(null);
-      return;
-    }
-
-    setDrag(null);
+  function advanceCard() {
     setIndex((value) => {
       const next = value + 1;
       return next >= deck.length ? 0 : next;
     });
+  }
+
+  function moveCard(direction: "left" | "right") {
+    if (direction === "right") {
+      loveCurrentCard();
+    } else {
+      setDrag(null);
+      advanceCard();
+    }
+  }
+
+  async function loveCurrentCard() {
+    const current = deck[index];
+
+    setDrag(null);
+    setLoveError("");
+
+    if (!current) {
+      return;
+    }
+
+    if (current.isLoved) {
+      advanceCard();
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+
+      if (supabase) {
+        await setEntryLovedInSupabase(supabase, current.id, true);
+      }
+
+      upsertEntry({ ...current, isLoved: true });
+      advanceCard();
+    } catch (caught) {
+      setLoveError(caught instanceof Error ? caught.message : "Could not save this to LOVE.");
+    }
   }
 
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
@@ -253,13 +291,14 @@ export function TonightExperience() {
         </button>
         <button
           type="button"
-          onClick={() => moveCard("right")}
+          onClick={loveCurrentCard}
           className="tap-scale grid size-10 place-items-center"
-          aria-label="Yes"
+          aria-label={deck[index]?.isLoved ? "Already in Love" : "Save to Love"}
         >
-          <Heart aria-hidden="true" size={20} fill="currentColor" strokeWidth={2.2} />
+          <Heart aria-hidden="true" size={20} fill={deck[index]?.isLoved ? "currentColor" : "none"} strokeWidth={2.2} />
         </button>
       </div>
+      {loveError ? <p className="mt-3 max-w-sm text-center text-sm leading-6 text-ink">{loveError}</p> : null}
 
       {selectedEntry ? (
         <FoodEntryModal

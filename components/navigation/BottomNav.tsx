@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, House, Sparkles } from "lucide-react";
+import { Circle, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 const items = [
-  { href: "/", label: "HOME", icon: House },
-  { href: "/recipes", label: "RECIPES", icon: BookOpen },
-  { href: "/tonight", label: "TONIGHT", icon: Sparkles }
+  { href: "/", label: "Home", icon: Circle },
+  { href: "/tonight", label: "Tonight", icon: Star },
+  { href: "/love", label: "Love", icon: Heart }
 ];
 
 export function BottomNav() {
@@ -37,15 +37,15 @@ export function BottomNav() {
             href={item.href}
             prefetch
             title={item.label}
+            aria-label={item.label}
             onClick={() => setActiveHref(item.href)}
             className={cn(
-              "tap-scale relative z-10 flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-[11px] font-semibold text-muted transition",
+              "tap-scale relative z-10 flex min-h-12 flex-1 items-center justify-center rounded-full px-2 text-muted transition",
               active && "bg-white/86 text-ink"
             )}
             aria-current={active ? "page" : undefined}
           >
-            <Icon aria-hidden="true" size={16} strokeWidth={1.9} />
-            <span>{item.label}</span>
+            <Icon aria-hidden="true" size={20} strokeWidth={1.7} fill={item.href === "/love" && active ? "currentColor" : "none"} />
           </Link>
         );
       })}

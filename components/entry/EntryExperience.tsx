@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BookOpen, CalendarDays, Check, MapPin, Pencil, Star, Trash2, X } from "lucide-react";
+import { BookOpen, CalendarDays, Check, MapPin, Pencil, Trash2, X } from "lucide-react";
 import type { FoodEntry } from "@/types/food";
 import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
 import { createClient } from "@/lib/supabase/client";
@@ -18,53 +18,9 @@ type EntryExperienceProps = {
 
 type DraftEntry = {
   title: string;
-  rating: number;
   notes: string;
   recipe: string;
 };
-
-function EntryStars({
-  value,
-  editable,
-  onChange
-}: {
-  value: number;
-  editable?: boolean;
-  onChange?: (value: number) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1" aria-label={value ? `${value} out of 5 stars` : "No rating"}>
-      {[1, 2, 3, 4, 5].map((star) => {
-        const filled = star <= value;
-        const icon = (
-          <Star
-            aria-hidden="true"
-            size={17}
-            fill={filled ? "currentColor" : "none"}
-            strokeWidth={2.25}
-            className={cn(filled ? "text-ink" : "text-ink/25")}
-          />
-        );
-
-        if (!editable) {
-          return <span key={star} className="grid size-5 place-items-center">{icon}</span>;
-        }
-
-        return (
-          <button
-            key={star}
-            type="button"
-            onClick={() => onChange?.(star)}
-            className="tap-scale grid size-7 place-items-center rounded-full hover:bg-surface-warm"
-            aria-label={`Rate ${star} out of 5`}
-          >
-            {icon}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 export function EntryExperience({ entry }: EntryExperienceProps) {
   const router = useRouter();
@@ -76,7 +32,6 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
   const [error, setError] = useState("");
   const [draft, setDraft] = useState<DraftEntry>({
     title: entry.title,
-    rating: entry.rating ?? 0,
     notes: entry.notes ?? "",
     recipe: entry.recipe ?? ""
   });
@@ -85,7 +40,6 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
     setCurrentEntry(entry);
     setDraft({
       title: entry.title,
-      rating: entry.rating ?? 0,
       notes: entry.notes ?? "",
       recipe: entry.recipe ?? ""
     });
@@ -99,7 +53,6 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
       const nextEntry: FoodEntry = {
         ...currentEntry,
         title: draft.title.trim() || currentEntry.title,
-        rating: draft.rating || undefined,
         notes: draft.notes.trim() || undefined,
         recipe: draft.recipe.trim() || undefined
       };
@@ -195,12 +148,6 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
         <PhotoCarousel photos={currentEntry.photos} />
 
         <div className="space-y-7 px-6 py-7 sm:px-8">
-          <EntryStars
-            value={isEditing ? draft.rating : currentEntry.rating ?? 0}
-            editable={isEditing}
-            onChange={(rating) => setDraft((current) => ({ ...current, rating }))}
-          />
-
           <div className="space-y-4">
             {isEditing ? (
               <label className="grid gap-2">

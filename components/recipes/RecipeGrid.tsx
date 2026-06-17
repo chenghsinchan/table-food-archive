@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { FoodEntry } from "@/types/food";
 import { foodCardTags, foodCardType } from "@/components/entry/FoodCard";
-import { RatingInput } from "@/components/ui/RatingInput";
 import { cn } from "@/lib/utils/cn";
 import { thumbnailSrc } from "@/lib/utils/photos";
 
 type RecipeGridProps = {
   entries: FoodEntry[];
   onSelect: (entry: FoodEntry) => void;
+  onRequestRemove?: (entry: FoodEntry) => void;
 };
 
 function cardTransform(offset: number) {
@@ -28,14 +28,18 @@ function RecipeCover({
   index,
   activeIndex,
   setCardRef,
-  onSelect
+  onSelect,
+  onRequestRemove
 }: {
   entry: FoodEntry;
   index: number;
   activeIndex: number;
   setCardRef: (index: number, node: HTMLButtonElement | null) => void;
   onSelect: (entry: FoodEntry) => void;
+  onRequestRemove?: (entry: FoodEntry) => void;
 }) {
+  const longPressRef = useRef<number | null>(null);
+  const didLongPressRef = useRef(false);
   const photo = entry.photos[0];
   const type = foodCardType(entry);
   const tags = foodCardTags(entry);
@@ -43,11 +47,52 @@ function RecipeCover({
   const distance = Math.min(Math.abs(offset), 4);
   const isActive = offset === 0;
 
+  function clearLongPress() {
+    if (longPressRef.current) {
+      window.clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  }
+
+  function requestRemove() {
+    didLongPressRef.current = true;
+    clearLongPress();
+    onRequestRemove?.(entry);
+  }
+
   return (
     <button
       ref={(node) => setCardRef(index, node)}
       type="button"
-      onClick={() => onSelect(entry)}
+      onClick={(event) => {
+        if (didLongPressRef.current) {
+          event.preventDefault();
+          didLongPressRef.current = false;
+          return;
+        }
+
+        onSelect(entry);
+      }}
+      onContextMenu={(event) => {
+        if (!onRequestRemove) {
+          return;
+        }
+
+        event.preventDefault();
+        requestRemove();
+      }}
+      onPointerDown={() => {
+        if (!onRequestRemove) {
+          return;
+        }
+
+        didLongPressRef.current = false;
+        clearLongPress();
+        longPressRef.current = window.setTimeout(requestRemove, 620);
+      }}
+      onPointerMove={clearLongPress}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
       className={cn(
         "group relative h-[clamp(350px,58dvh,560px)] max-h-[calc(100dvh-230px)] w-[78vw] max-w-[390px] shrink-0 snap-center overflow-hidden rounded-[26px] bg-ink text-left shadow-sm outline-none transition-[transform,opacity] duration-200 ease-out focus:outline-none focus-visible:outline-none sm:w-[380px]",
         index > 0 && "-ml-[22vw] sm:-ml-[150px]",
@@ -69,15 +114,36 @@ function RecipeCover({
       <div className="absolute inset-0 bg-gradient-to-t from-black/76 via-black/18 to-transparent" />
       <article className="absolute inset-x-0 bottom-0 min-h-[190px] space-y-3 p-5 text-white">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/74">{type}</p>
-        <RatingInput value={entry.rating ?? 0} readOnly size="sm" tone="light" />
         <h2 className="line-clamp-2 font-serif text-[34px] italic leading-none">{entry.title}</h2>
+        {entry.notes ? <p className="line-clamp-2 text-sm leading-6 text-white/82">{entry.notes}</p> : null}
         {tags.length ? <p className="line-clamp-2 text-sm leading-6 text-white/82">{tags.join(" · ")}</p> : null}
       </article>
+      {onRequestRemove ? (
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={`Remove ${entry.title} from LOVE`}
+          onClick={(event) => {
+            event.stopPropagation();
+            requestRemove();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+              requestRemove();
+            }
+          }}
+          className="absolute right-4 top-4 grid size-9 place-items-center rounded-full bg-white/84 text-ink opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100"
+        >
+          ×
+        </span>
+      ) : null}
     </button>
   );
 }
 
-export function RecipeGrid({ entries, onSelect }: RecipeGridProps) {
+export function RecipeGrid({ entries, onSelect, onRequestRemove }: RecipeGridProps) {
   const startIndex = Math.max(0, Math.floor(entries.length / 2));
   const [activeIndex, setActiveIndex] = useState(startIndex);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -139,6 +205,7 @@ export function RecipeGrid({ entries, onSelect }: RecipeGridProps) {
               cardRefs.current[cardIndex] = node;
             }}
             onSelect={onSelect}
+            onRequestRemove={onRequestRemove}
           />
         ))}
       </div>

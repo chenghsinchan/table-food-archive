@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, CalendarDays, Check, ImagePlus, Pencil, Star, Trash2, X } from "lucide-react";
+import { BookOpen, CalendarDays, Check, ImagePlus, Pencil, Trash2, X } from "lucide-react";
 import type { FoodEntry, FoodPhoto } from "@/types/food";
 import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
 import { TagPill } from "@/components/ui/TagPill";
@@ -23,7 +23,6 @@ type FoodEntryModalProps = {
 
 type DraftEntry = {
   title: string;
-  rating: number;
   notes: string;
   recipe: string;
   tags: string[];
@@ -32,55 +31,11 @@ type DraftEntry = {
   customTag: string;
 };
 
-function CompactStars({
-  value,
-  editable,
-  onChange
-}: {
-  value: number;
-  editable?: boolean;
-  onChange?: (value: number) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1" aria-label={value ? `${value} out of 5 stars` : "No rating"}>
-      {[1, 2, 3, 4, 5].map((star) => {
-        const filled = star <= value;
-        const starIcon = (
-          <Star
-            aria-hidden="true"
-            size={17}
-            fill={filled ? "currentColor" : "none"}
-            strokeWidth={2.2}
-            className={cn(filled ? "text-ink" : "text-ink/25", "drop-shadow-none")}
-          />
-        );
-
-        if (!editable) {
-          return <span key={star} className="grid size-5 place-items-center">{starIcon}</span>;
-        }
-
-        return (
-          <button
-            key={star}
-            type="button"
-            onClick={() => onChange?.(star)}
-            className="tap-scale grid size-7 place-items-center rounded-full hover:bg-surface-warm"
-            aria-label={`Rate ${star} out of 5`}
-          >
-            {starIcon}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntryModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<DraftEntry>({
     title: entry.title,
-    rating: entry.rating ?? 0,
     notes: entry.notes ?? "",
     recipe: entry.recipe ?? "",
     tags: entry.tags,
@@ -119,7 +74,6 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
   function startEditing() {
     setDraft({
       title: entry.title,
-      rating: entry.rating ?? 0,
       notes: entry.notes ?? "",
       recipe: entry.recipe ?? "",
       tags: entry.tags,
@@ -180,7 +134,6 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
       const nextEntry: FoodEntry = {
         ...entry,
         title: draft.title.trim() || entry.title,
-        rating: draft.rating || undefined,
         notes: draft.notes.trim() || undefined,
         recipe: draft.recipe.trim() || undefined,
         tags: uniqueTagNames(draft.tags),
@@ -293,11 +246,6 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
         <PhotoCarousel photos={entry.photos} />
 
         <div className="space-y-7 px-6 py-7 sm:px-8">
-          <CompactStars
-            value={isEditing ? draft.rating : entry.rating ?? 0}
-            editable={isEditing}
-            onChange={(rating) => setDraft((current) => ({ ...current, rating }))}
-          />
           <div className="space-y-4">
             {isEditing ? (
               <label className="grid gap-2">

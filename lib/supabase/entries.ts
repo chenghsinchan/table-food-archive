@@ -28,6 +28,7 @@ type EntryRow = {
   country: string | null;
   entry_date: string;
   want_to_recreate?: boolean | null;
+  is_loved?: boolean | null;
   created_by: string | null;
   updated_at?: string | null;
   created_at?: string | null;
@@ -76,6 +77,7 @@ function transformEntry(row: EntryRow, profiles: Map<string, ProfileRow> = new M
     country: row.country ?? undefined,
     entryDate: row.entry_date,
     wantToRecreate: row.want_to_recreate ?? false,
+    isLoved: row.is_loved ?? false,
     createdById: row.created_by ?? undefined,
     addedBy: row.created_by
       ? (() => {

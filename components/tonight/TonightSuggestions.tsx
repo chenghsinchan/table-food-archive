@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { FoodEntry } from "@/types/food";
 import { foodCardTags, foodCardType } from "@/components/entry/FoodCard";
-import { RatingInput } from "@/components/ui/RatingInput";
 import { formatShortDate } from "@/lib/utils/date";
 import { thumbnailSrc } from "@/lib/utils/photos";
 
@@ -46,7 +45,6 @@ function TonightCard({ entry }: { entry: FoodEntry }) {
       <article className="space-y-4 p-5">
         <div className="flex items-center justify-between gap-4">
           <p className="truncate font-mono text-xs uppercase tracking-[0.18em] text-muted">{foodCardType(entry)}</p>
-          <RatingInput value={entry.rating ?? 0} readOnly size="sm" />
         </div>
         <div className="space-y-2">
           <h2 className="font-serif text-[32px] italic leading-tight text-ink">{entry.title}</h2>

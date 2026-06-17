@@ -34,7 +34,6 @@ export function recommendTonight(entries: FoodEntry[], mood: string, offset = 0)
       return tags.some((tag) => hasTag(entry, tag));
     })
     .map((entry) => {
-      const ratingScore = (entry.rating ?? 3) * 32;
       const recencyScore = Math.min(daysSince(entry.entryDate), 365) / 4;
       const tagScore = tags.length ? tags.filter((tag) => hasTag(entry, tag)).length * 34 : 16;
       const kitchenScore = entry.type === "home" || entry.type === "recipe" ? 26 : 0;
@@ -46,7 +45,6 @@ export function recommendTonight(entries: FoodEntry[], mood: string, offset = 0)
       return {
         entry,
         score:
-          ratingScore +
           recencyScore +
           tagScore +
           kitchenScore +

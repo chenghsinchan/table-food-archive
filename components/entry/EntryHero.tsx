@@ -1,7 +1,6 @@
 import type { FoodEntry } from "@/types/food";
 import { formatLongDate } from "@/lib/utils/date";
 import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
-import { RatingInput } from "@/components/ui/RatingInput";
 
 type EntryHeroProps = {
   entry: FoodEntry;
@@ -31,7 +30,6 @@ export function EntryHero({ entry }: EntryHeroProps) {
             <div className="flex flex-wrap items-center gap-4 text-sm text-white/78">
               <span>{formatLongDate(entry.entryDate)}</span>
               <span>{entryTypeLabel(entry)}</span>
-              {entry.rating ? <RatingInput value={entry.rating} readOnly size="sm" /> : null}
             </div>
           </div>
         </div>

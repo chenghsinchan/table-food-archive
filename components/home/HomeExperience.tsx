@@ -20,12 +20,6 @@ export function HomeExperience() {
 
   const visibleEntries = useMemo(() => {
     return searchEntries(entries, query).sort((a, b) => {
-      const ratingDifference = (b.rating ?? 0) - (a.rating ?? 0);
-
-      if (ratingDifference !== 0) {
-        return ratingDifference;
-      }
-
       return new Date(`${b.entryDate}T12:00:00`).getTime() - new Date(`${a.entryDate}T12:00:00`).getTime();
     });
   }, [entries, query]);

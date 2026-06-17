@@ -11,7 +11,7 @@ export function FloatingAddButton() {
     return null;
   }
 
-  const returnTo = pathname === "/recipes" ? "/recipes" : "/";
+  const returnTo = pathname === "/love" ? "/love" : "/";
 
   return (
     <Link

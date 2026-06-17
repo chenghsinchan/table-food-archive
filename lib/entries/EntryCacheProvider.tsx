@@ -86,7 +86,7 @@ export function EntryCacheProvider({ children }: { children: React.ReactNode }) 
   }, [refreshEntries]);
 
   useEffect(() => {
-    if (!["/", "/recipes", "/tonight"].includes(pathname)) {
+    if (!["/", "/tonight", "/love"].includes(pathname)) {
       return;
     }
 

@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { FoodEntry } from "@/types/food";
 import { foodCardTags, foodCardType } from "@/components/entry/FoodCard";
 import { formatShortDate } from "@/lib/utils/date";
-import { RatingInput } from "@/components/ui/RatingInput";
 import { thumbnailSrc } from "@/lib/utils/photos";
 
 type RecommendationCardProps = {
@@ -31,7 +30,6 @@ export function RecommendationCard({ entry }: RecommendationCardProps) {
             <p className="truncate text-xs font-medium uppercase text-muted">
               {foodCardType(entry)}
             </p>
-            <RatingInput value={entry.rating ?? 0} readOnly size="sm" />
           </div>
           <h2 className="text-3xl font-semibold leading-tight text-ink">{entry.title}</h2>
           {tags.length ? <p className="line-clamp-1 text-sm leading-6 text-muted">{tags.join(" · ")}</p> : null}
