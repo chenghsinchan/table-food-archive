@@ -1,29 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { saveEntryToSupabase } from "@/lib/supabase/save-entry";
+import { createEntryInSupabase } from "@/lib/supabase/save-entry";
 import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
+import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
+import { useSavedTags } from "@/lib/hooks/useSavedTags";
+import { canonicalTagKey, commonTags, uniqueTagNames } from "@/lib/tags";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { TagPill } from "@/components/ui/TagPill";
 import { PhotoUploader } from "@/components/upload/PhotoUploader";
 import type { EntryType, FoodEntry, FoodPhoto } from "@/types/food";
 
-const fallbackTags = [
-  "Comfort",
-  "Quick",
-  "Seafood",
-  "Taiwanese",
-  "Japanese",
-  "Lithuanian",
-  "Pasta",
-  "Favorite",
-  "Vegetarian",
-  "Light",
-  "Rich"
-];
 const entryTypes: EntryType[] = ["home", "restaurant", "travel", "recipe"];
 
 type EntryFormProps = {
@@ -37,6 +27,7 @@ type RankedTag = {
 
 export function EntryForm({ entries }: EntryFormProps) {
   const searchParams = useSearchParams();
+  const { upsertEntry } = useFoodEntries();
   const [tagSourceEntries, setTagSourceEntries] = useState(entries);
   const [rating, setRating] = useState(0);
   const [type, setType] = useState<EntryType>("home");
@@ -46,16 +37,22 @@ export function EntryForm({ entries }: EntryFormProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
+  const savingRef = useRef(false);
   const returnTo = safeReturnPath(searchParams.get("returnTo"));
+  const savedTags = useSavedTags(tags);
+  const isSaving = status === "saving";
 
   useEffect(() => {
     setTagSourceEntries(entries);
   }, [entries]);
 
-  const suggestedTags = useMemo(() => rankTags(tagSourceEntries, tags), [tagSourceEntries, tags]);
+  const suggestedTags = useMemo(() => rankTags(tagSourceEntries, tags, savedTags), [tagSourceEntries, tags, savedTags]);
 
   function toggleTag(tag: string) {
-    setTags((current) => (current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]));
+    const key = canonicalTagKey(tag);
+    setTags((current) => current.some((item) => canonicalTagKey(item) === key)
+      ? current.filter((item) => canonicalTagKey(item) !== key)
+      : uniqueTagNames([...current, tag]));
   }
 
   function addCustomTag() {
@@ -66,8 +63,7 @@ export function EntryForm({ entries }: EntryFormProps) {
     }
 
     setTags((current) => {
-      const exists = current.some((item) => canonicalTagKey(item) === canonicalTagKey(tag));
-      return exists ? current : [...current, tag];
+      return uniqueTagNames([...current, tag]);
     });
     setCustomTag("");
   }
@@ -85,6 +81,10 @@ export function EntryForm({ entries }: EntryFormProps) {
     event.preventDefault();
     setError("");
 
+    if (savingRef.current) {
+      return;
+    }
+
     const form = new FormData(event.currentTarget);
     const title = String(form.get("title") || "").trim();
 
@@ -99,23 +99,33 @@ export function EntryForm({ entries }: EntryFormProps) {
     }
 
     setStatus("saving");
+    savingRef.current = true;
+    let uploadedPhotos: FoodPhoto[] = [];
 
     try {
       const entryId = crypto.randomUUID();
-      const photos = await uploadEntryPhotos({ entryId, files, title });
-      const entry = buildLocalEntry({ id: entryId, form, title, type, rating, wantToRecreate, tags, photos });
       const supabase = createClient();
 
       if (!supabase) {
         throw new Error("Supabase is not connected. Shared archive saves need Supabase.");
       }
 
-      await saveEntryToSupabase(supabase, entry);
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+      uploadedPhotos = await uploadEntryPhotos({ supabase, entryId, files, title });
+      const entry = buildLocalEntry({ id: entryId, form, title, type, rating, wantToRecreate, tags, photos: uploadedPhotos });
+
+      await createEntryInSupabase(supabase, entry, { createdById: user?.id ?? null });
+      upsertEntry({ ...entry, createdById: user?.id ?? undefined });
       setStatus("saved");
-      window.location.replace(returnTo);
+      window.location.replace(returnTo === "/" ? `/entry/${entry.id}` : returnTo);
     } catch (caught) {
+      await cleanupUploadedPhotos(uploadedPhotos);
       setStatus("idle");
       setError(caught instanceof Error ? caught.message : "Something went wrong while saving this memory.");
+    } finally {
+      savingRef.current = false;
     }
   }
 
@@ -219,7 +229,7 @@ export function EntryForm({ entries }: EntryFormProps) {
             <span className="text-sm font-medium text-muted">Tags</span>
             <div className="flex flex-wrap gap-2">
               {suggestedTags.map((tag) => (
-                <TagPill key={tag.name} active={tags.includes(tag.name)} onClick={() => toggleTag(tag.name)}>
+                <TagPill key={tag.name} active={tags.some((selected) => canonicalTagKey(selected) === canonicalTagKey(tag.name))} onClick={() => toggleTag(tag.name)}>
                   {tag.name}
                 </TagPill>
               ))}
@@ -251,7 +261,7 @@ export function EntryForm({ entries }: EntryFormProps) {
 
       <button
         type="submit"
-        disabled={status === "saving"}
+        disabled={isSaving}
         className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-70"
       >
         <Save aria-hidden="true" size={18} />
@@ -274,11 +284,11 @@ function safeReturnPath(value: string | null) {
   return value;
 }
 
-function rankTags(entries: FoodEntry[], selectedTags: string[]): RankedTag[] {
+function rankTags(entries: FoodEntry[], selectedTags: string[], savedTags: string[]): RankedTag[] {
   const counts = new Map<string, RankedTag>();
   const preferredNames = new Map<string, string>();
 
-  for (const tag of fallbackTags) {
+  for (const tag of [...commonTags, ...savedTags]) {
     preferredNames.set(canonicalTagKey(tag), tag);
   }
 
@@ -300,7 +310,7 @@ function rankTags(entries: FoodEntry[], selectedTags: string[]): RankedTag[] {
     }
   }
 
-  for (const tag of [...fallbackTags, ...selectedTags]) {
+  for (const tag of [...commonTags, ...savedTags, ...selectedTags]) {
     const key = canonicalTagKey(tag);
 
     if (!counts.has(key)) {
@@ -318,8 +328,8 @@ function rankTags(entries: FoodEntry[], selectedTags: string[]): RankedTag[] {
       return countDifference;
     }
 
-    const fallbackIndexA = fallbackTags.findIndex((tag) => canonicalTagKey(tag) === canonicalTagKey(a.name));
-    const fallbackIndexB = fallbackTags.findIndex((tag) => canonicalTagKey(tag) === canonicalTagKey(b.name));
+    const fallbackIndexA = commonTags.findIndex((tag) => canonicalTagKey(tag) === canonicalTagKey(a.name));
+    const fallbackIndexB = commonTags.findIndex((tag) => canonicalTagKey(tag) === canonicalTagKey(b.name));
 
     if (fallbackIndexA !== -1 || fallbackIndexB !== -1) {
       return (fallbackIndexA === -1 ? Number.POSITIVE_INFINITY : fallbackIndexA) -
@@ -328,12 +338,6 @@ function rankTags(entries: FoodEntry[], selectedTags: string[]): RankedTag[] {
 
     return a.name.localeCompare(b.name);
   });
-}
-
-function canonicalTagKey(tag: string) {
-  const key = tag.trim().toLowerCase();
-
-  return key === "favorites" ? "favorite" : key;
 }
 
 function buildLocalEntry({
@@ -367,27 +371,34 @@ function buildLocalEntry({
     country: String(form.get("country") || "").trim() || undefined,
     entryDate: String(form.get("date") || "").trim() || new Date().toISOString().slice(0, 10),
     wantToRecreate,
-    tags,
+    tags: uniqueTagNames(tags),
     photos
   };
 }
 
 async function uploadEntryPhotos({
+  supabase,
   entryId,
   files,
   title
 }: {
+  supabase: NonNullable<ReturnType<typeof createClient>>;
   entryId: string;
   files: File[];
   title: string;
 }): Promise<FoodPhoto[]> {
-  const supabase = createClient();
-
-  if (!supabase) {
-    throw new Error("Photo upload is not connected. Supabase Storage is required for food photos.");
-  }
-
   const uploadedPhotos = await uploadFoodPhotos({ supabase, entryId, files });
 
   return uploadedPhotos.map((upload, index) => photoFromUpload({ entryId, title, upload, index }));
+}
+
+async function cleanupUploadedPhotos(photos: FoodPhoto[]) {
+  const storagePaths = photos.map((photo) => photo.storagePath).filter(Boolean) as string[];
+
+  if (!storagePaths.length) {
+    return;
+  }
+
+  const supabase = createClient();
+  await supabase?.storage.from("food-photos").remove(storagePaths);
 }

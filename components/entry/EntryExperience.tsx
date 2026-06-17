@@ -267,7 +267,7 @@ export function EntryExperience({ entry }: EntryExperienceProps) {
           </section>
 
           {currentEntry.wantToRecreate ? (
-            <p className="rounded-lg bg-[#E7EEE8] px-4 py-3 text-sm font-medium text-[#385A40]">
+            <p className="rounded-lg bg-surface-warm px-4 py-3 text-sm font-medium text-ink">
               Want to recreate
             </p>
           ) : null}

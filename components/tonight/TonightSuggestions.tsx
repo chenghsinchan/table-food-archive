@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { FoodEntry } from "@/types/food";
+import { foodCardTags, foodCardType } from "@/components/entry/FoodCard";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { formatShortDate } from "@/lib/utils/date";
-import { entryLocation } from "@/lib/utils/entries";
 import { thumbnailSrc } from "@/lib/utils/photos";
 
 type TonightSuggestionsProps = {
@@ -29,6 +29,7 @@ export function TonightSuggestions({ entries }: TonightSuggestionsProps) {
 
 function TonightCard({ entry }: { entry: FoodEntry }) {
   const photo = entry.photos[0];
+  const tags = foodCardTags(entry);
 
   return (
     <Link
@@ -44,10 +45,8 @@ function TonightCard({ entry }: { entry: FoodEntry }) {
       />
       <article className="space-y-4 p-5">
         <div className="flex items-center justify-between gap-4">
-          <p className="truncate font-mono text-xs uppercase tracking-[0.18em] text-muted">
-            {entryLocation(entry)}
-          </p>
-          {entry.rating ? <RatingInput value={entry.rating} readOnly size="sm" /> : null}
+          <p className="truncate font-mono text-xs uppercase tracking-[0.18em] text-muted">{foodCardType(entry)}</p>
+          <RatingInput value={entry.rating ?? 0} readOnly size="sm" />
         </div>
         <div className="space-y-2">
           <h2 className="font-serif text-[32px] italic leading-tight text-ink">{entry.title}</h2>
@@ -56,6 +55,7 @@ function TonightCard({ entry }: { entry: FoodEntry }) {
               {entry.recipe ?? entry.notes}
             </p>
           ) : null}
+          {tags.length ? <p className="line-clamp-1 text-sm leading-6 text-muted">{tags.join(" · ")}</p> : null}
         </div>
         <p className="border-t border-border pt-4 font-mono text-xs uppercase tracking-[0.16em] text-muted">
           Last eaten {formatShortDate(entry.entryDate)}

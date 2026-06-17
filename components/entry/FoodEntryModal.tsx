@@ -8,6 +8,8 @@ import { TagPill } from "@/components/ui/TagPill";
 import { createClient } from "@/lib/supabase/client";
 import { deleteEntryFromSupabase, saveEntryToSupabase } from "@/lib/supabase/save-entry";
 import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
+import { useSavedTags } from "@/lib/hooks/useSavedTags";
+import { canonicalTagKey, commonTags, uniqueTagNames } from "@/lib/tags";
 import { cn } from "@/lib/utils/cn";
 import { formatLongDate } from "@/lib/utils/date";
 import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
@@ -29,26 +31,6 @@ type DraftEntry = {
   files: File[];
   customTag: string;
 };
-
-const defaultTags = [
-  "Home",
-  "Quick",
-  "Comfort",
-  "Favorite",
-  "Light",
-  "Rich",
-  "Seafood",
-  "Vegetarian",
-  "Restaurant",
-  "Travel",
-  "Taiwanese",
-  "Japanese",
-  "Lithuanian",
-  "Italian",
-  "Pasta",
-  "Summer",
-  "Winter"
-];
 
 function CompactStars({
   value,
@@ -110,6 +92,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
+  const savedTags = useSavedTags([...entry.tags, ...draft.tags]);
   const newPhotoPreviews = useMemo(
     () => draft.files.map((file) => ({ file, url: URL.createObjectURL(file) })),
     [draft.files]
@@ -117,7 +100,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
   const tagChoices = useMemo(() => {
     const byKey = new Map<string, string>();
 
-    for (const tag of [...entry.tags, ...draft.tags, ...defaultTags]) {
+    for (const tag of [...entry.tags, ...draft.tags, ...savedTags, ...commonTags]) {
       const trimmed = tag.trim();
       if (trimmed) {
         byKey.set(canonicalTagKey(trimmed), trimmed);
@@ -125,7 +108,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
     }
 
     return Array.from(byKey.values());
-  }, [draft.tags, entry.tags]);
+  }, [draft.tags, entry.tags, savedTags]);
 
   useEffect(() => {
     return () => {
@@ -155,7 +138,9 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
 
       return {
         ...current,
-        tags: exists ? current.tags.filter((candidate) => canonicalTagKey(candidate) !== key) : [...current.tags, tag]
+        tags: exists
+          ? current.tags.filter((candidate) => canonicalTagKey(candidate) !== key)
+          : uniqueTagNames([...current.tags, tag])
       };
     });
   }
@@ -173,7 +158,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
       return {
         ...current,
         customTag: "",
-        tags: exists ? current.tags : [...current.tags, tag]
+        tags: exists ? current.tags : uniqueTagNames([...current.tags, tag])
       };
     });
   }
@@ -198,7 +183,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
         rating: draft.rating || undefined,
         notes: draft.notes.trim() || undefined,
         recipe: draft.recipe.trim() || undefined,
-        tags: uniqueTags(draft.tags),
+        tags: uniqueTagNames(draft.tags),
         photos: draft.photos
       };
 
@@ -482,7 +467,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
           </section>
 
           {entry.wantToRecreate ? (
-            <p className="rounded-lg bg-[#E7EEE8] px-4 py-3 text-sm font-medium text-[#385A40]">
+            <p className="rounded-lg bg-surface-warm px-4 py-3 text-sm font-medium text-ink">
               Want to recreate
             </p>
           ) : null}
@@ -491,24 +476,4 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete }: FoodEntry
       </article>
     </div>
   );
-}
-
-function canonicalTagKey(tag: string) {
-  const key = tag.trim().toLowerCase();
-
-  return key === "favorites" ? "favorite" : key;
-}
-
-function uniqueTags(tags: string[]) {
-  const byKey = new Map<string, string>();
-
-  for (const tag of tags) {
-    const trimmed = tag.trim();
-
-    if (trimmed) {
-      byKey.set(canonicalTagKey(trimmed), trimmed);
-    }
-  }
-
-  return Array.from(byKey.values());
 }

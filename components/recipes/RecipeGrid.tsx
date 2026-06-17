@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FoodEntry } from "@/types/food";
+import { foodCardTags, foodCardType } from "@/components/entry/FoodCard";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { cn } from "@/lib/utils/cn";
-import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
 import { thumbnailSrc } from "@/lib/utils/photos";
 
 type RecipeGridProps = {
@@ -37,7 +37,8 @@ function RecipeCover({
   onSelect: (entry: FoodEntry) => void;
 }) {
   const photo = entry.photos[0];
-  const place = entry.restaurantName ? entryLocation(entry) : entryTypeLabel(entry);
+  const type = foodCardType(entry);
+  const tags = foodCardTags(entry);
   const offset = index - activeIndex;
   const distance = Math.min(Math.abs(offset), 4);
   const isActive = offset === 0;
@@ -66,27 +67,11 @@ function RecipeCover({
         className="size-full object-cover"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/76 via-black/18 to-transparent" />
-      <article className="absolute inset-x-0 bottom-0 min-h-[210px] space-y-4 p-5 text-white">
-        <div className="flex min-h-6 items-center justify-between gap-3">
-          <p className="truncate font-mono text-xs uppercase tracking-[0.18em] text-white/74">{place}</p>
-          {entry.rating ? <RatingInput value={entry.rating} readOnly size="sm" /> : null}
-        </div>
-        <div className="space-y-2">
-          <h2 className="line-clamp-2 font-serif text-[34px] italic leading-none">{entry.title}</h2>
-          <p className="line-clamp-2 text-sm leading-6 text-white/78">
-            {entry.recipe ?? entry.notes ?? "Tap to open recipe notes."}
-          </p>
-        </div>
-        <div className="flex min-h-[30px] flex-wrap gap-2">
-          {entry.tags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border border-white/22 bg-white/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-white/86"
-            >
-              {tag === "Favorites" ? "Favorite" : tag}
-            </span>
-          ))}
-        </div>
+      <article className="absolute inset-x-0 bottom-0 min-h-[190px] space-y-3 p-5 text-white">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/74">{type}</p>
+        <RatingInput value={entry.rating ?? 0} readOnly size="sm" tone="light" />
+        <h2 className="line-clamp-2 font-serif text-[34px] italic leading-none">{entry.title}</h2>
+        {tags.length ? <p className="line-clamp-2 text-sm leading-6 text-white/82">{tags.join(" · ")}</p> : null}
       </article>
     </button>
   );

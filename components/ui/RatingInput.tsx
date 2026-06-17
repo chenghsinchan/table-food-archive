@@ -8,9 +8,10 @@ type RatingInputProps = {
   onChange?: (value: number) => void;
   readOnly?: boolean;
   size?: "sm" | "md";
+  tone?: "dark" | "light";
 };
 
-export function RatingInput({ value = 0, onChange, readOnly, size = "md" }: RatingInputProps) {
+export function RatingInput({ value = 0, onChange, readOnly, size = "md", tone = "dark" }: RatingInputProps) {
   return (
     <div className="flex items-center gap-1" aria-label={value ? `${value} out of 5 stars` : "No rating"}>
       {[1, 2, 3, 4, 5].map((star) => {
@@ -18,9 +19,11 @@ export function RatingInput({ value = 0, onChange, readOnly, size = "md" }: Rati
         const isCompactReadonly = readOnly && size === "sm";
         const className = cn(
           "grid place-items-center rounded-full transition",
-          isCompactReadonly ? (filled ? "text-ink" : "text-ink/25") : "text-accent",
+          tone === "light"
+            ? (filled ? "text-white" : "text-white/35")
+            : isCompactReadonly ? (filled ? "text-ink" : "text-ink/25") : "text-ink",
           size === "sm" ? "size-5" : "size-8",
-          !readOnly && "tap-scale hover:bg-accent/10"
+          !readOnly && "tap-scale hover:bg-ink/10"
         );
 
         if (readOnly) {

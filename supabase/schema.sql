@@ -92,6 +92,27 @@ create index if not exists food_entries_created_by_idx on public.food_entries(cr
 create index if not exists photos_food_entry_id_idx on public.photos(food_entry_id);
 create index if not exists food_entry_tags_tag_id_idx on public.food_entry_tags(tag_id);
 
+insert into public.tags (name)
+values
+  ('Comfort'),
+  ('Quick'),
+  ('Seafood'),
+  ('Taiwanese'),
+  ('Japanese'),
+  ('Lithuanian'),
+  ('Pasta'),
+  ('Favorite'),
+  ('Want to recreate'),
+  ('Restaurant'),
+  ('Home'),
+  ('Travel'),
+  ('Light'),
+  ('Rich'),
+  ('Vegetarian'),
+  ('Summer'),
+  ('Winter')
+on conflict (name) do nothing;
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql

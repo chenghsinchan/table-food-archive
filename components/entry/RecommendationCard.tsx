@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { FoodEntry } from "@/types/food";
+import { foodCardTags, foodCardType } from "@/components/entry/FoodCard";
 import { formatShortDate } from "@/lib/utils/date";
-import { entryLocation } from "@/lib/utils/entries";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { thumbnailSrc } from "@/lib/utils/photos";
 
@@ -11,6 +11,7 @@ type RecommendationCardProps = {
 
 export function RecommendationCard({ entry }: RecommendationCardProps) {
   const photo = entry.photos[0];
+  const tags = foodCardTags(entry);
 
   return (
     <Link
@@ -28,11 +29,12 @@ export function RecommendationCard({ entry }: RecommendationCardProps) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <p className="truncate text-xs font-medium uppercase text-muted">
-              {entryLocation(entry)}
+              {foodCardType(entry)}
             </p>
-            {entry.rating ? <RatingInput value={entry.rating} readOnly size="sm" /> : null}
+            <RatingInput value={entry.rating ?? 0} readOnly size="sm" />
           </div>
           <h2 className="text-3xl font-semibold leading-tight text-ink">{entry.title}</h2>
+          {tags.length ? <p className="line-clamp-1 text-sm leading-6 text-muted">{tags.join(" · ")}</p> : null}
           {entry.notes ? <p className="line-clamp-3 text-base leading-7 text-muted">{entry.notes}</p> : null}
         </div>
         <p className="pt-5 text-sm font-medium text-muted">Last eaten {formatShortDate(entry.entryDate)}</p>

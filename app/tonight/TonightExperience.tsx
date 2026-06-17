@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Heart, RotateCcw, X } from "lucide-react";
 import type { FoodEntry } from "@/types/food";
+import { foodCardTags, foodCardType } from "@/components/entry/FoodCard";
 import { FoodEntryModal } from "@/components/entry/FoodEntryModal";
 import { ProfileButton } from "@/components/profile/ProfileButton";
 import { DeckSkeleton } from "@/components/ui/EntrySkeletons";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { cn } from "@/lib/utils/cn";
-import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
 import { thumbnailSrc } from "@/lib/utils/photos";
 
 type DragState = {
@@ -46,7 +46,8 @@ function DeckCard({
   onPointerUp?: (event: React.PointerEvent<HTMLDivElement>) => void;
 }) {
   const photo = entry.photos[0];
-  const place = entry.restaurantName ? entryLocation(entry) : entryTypeLabel(entry);
+  const type = foodCardType(entry);
+  const tags = foodCardTags(entry);
   const isTop = index === 0;
   const dragX = isTop ? drag?.x ?? 0 : 0;
   const dragY = isTop ? drag?.y ?? 0 : 0;
@@ -81,16 +82,10 @@ function DeckCard({
       {!isTop ? <div className="absolute inset-0 bg-white/42" /> : null}
       <div className="absolute inset-0 bg-gradient-to-t from-black/76 via-black/16 to-transparent" />
       <article className="absolute inset-x-0 bottom-0 space-y-3 p-5 text-white">
-        <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/72">{place}</p>
+        <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/72">{type}</p>
         <h1 className="font-serif text-[38px] italic leading-none">{entry.title}</h1>
         <div className="pattern-divider opacity-80" />
-        <div className="flex flex-wrap gap-2">
-          {entry.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded-full border border-white/22 bg-white/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-white/84">
-              {tag === "Favorites" ? "Favorite" : tag}
-            </span>
-          ))}
-        </div>
+        {tags.length ? <p className="line-clamp-2 text-sm leading-6 text-white/84">{tags.join(" · ")}</p> : null}
       </article>
     </div>
   );
