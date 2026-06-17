@@ -88,31 +88,14 @@ export async function setEntryLovedInSupabase(supabase: SupabaseClient, entryId:
 }
 
 async function setEntryLoveTagInSupabase(supabase: SupabaseClient, entryId: string, isLoved: boolean) {
-  const { data: tagRows, error: tagError } = await supabase
-    .from("tags")
-    .upsert({ name: "Love" }, { onConflict: "name" })
-    .select("id")
-    .limit(1);
-
-  if (tagError) {
-    throw tagError;
-  }
-
-  const tagId = tagRows?.[0]?.id;
+  const tagId = await findOrCreateLoveTagId(supabase);
 
   if (!tagId) {
     throw new Error("Could not find the LOVE tag.");
   }
 
   if (isLoved) {
-    const { error: relationError } = await supabase
-      .from("food_entry_tags")
-      .upsert({ food_entry_id: entryId, tag_id: tagId }, { onConflict: "food_entry_id,tag_id" });
-
-    if (relationError) {
-      throw relationError;
-    }
-
+    await addLoveTagToEntry(supabase, entryId, tagId);
     return;
   }
 
@@ -127,8 +110,75 @@ async function setEntryLoveTagInSupabase(supabase: SupabaseClient, entryId: stri
   }
 }
 
+async function findOrCreateLoveTagId(supabase: SupabaseClient) {
+  const existing = await findLoveTagId(supabase);
+
+  if (existing) {
+    return existing;
+  }
+
+  const { data, error } = await supabase
+    .from("tags")
+    .insert({ name: "Love" })
+    .select("id")
+    .single();
+
+  if (error) {
+    if (isDuplicateError(error)) {
+      return findLoveTagId(supabase);
+    }
+
+    throw error;
+  }
+
+  return data?.id as string | undefined;
+}
+
+async function findLoveTagId(supabase: SupabaseClient) {
+  const { data, error } = await supabase
+    .from("tags")
+    .select("id")
+    .eq("name", "Love")
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.id as string | undefined;
+}
+
+async function addLoveTagToEntry(supabase: SupabaseClient, entryId: string, tagId: string) {
+  const { data: existingRelation, error: existingError } = await supabase
+    .from("food_entry_tags")
+    .select("food_entry_id")
+    .eq("food_entry_id", entryId)
+    .eq("tag_id", tagId)
+    .maybeSingle();
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  if (existingRelation) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("food_entry_tags")
+    .insert({ food_entry_id: entryId, tag_id: tagId });
+
+  if (error && !isDuplicateError(error)) {
+    throw error;
+  }
+}
+
 function isMissingLovedColumnError(error: { code?: string; message?: string }) {
   return error.code === "42703" || Boolean(error.message?.includes("is_loved"));
+}
+
+function isDuplicateError(error: { code?: string }) {
+  return error.code === "23505";
 }
 
 async function replacePhotos(supabase: SupabaseClient, entry: FoodEntry, removeUnusedStorage: boolean) {

@@ -120,10 +120,11 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
       return;
     }
 
-    const deltaY = gesture.startY - event.clientY;
+    const deltaY = event.clientY - gesture.startY;
+    const verticalDistance = Math.abs(deltaY);
     const deltaX = Math.abs(event.clientX - gesture.startX);
 
-    if (deltaY > 82 && deltaY > deltaX * 1.4) {
+    if (verticalDistance > 76 && verticalDistance > deltaX * 1.35) {
       gestureRef.current.active = false;
       onClose();
     }
@@ -138,12 +139,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
       return;
     }
 
-    if (event.deltaY <= 0) {
-      wheelDistanceRef.current = 0;
-      return;
-    }
-
-    wheelDistanceRef.current += event.deltaY;
+    wheelDistanceRef.current += Math.abs(event.deltaY);
 
     if (wheelDistanceRef.current > 140) {
       wheelDistanceRef.current = 0;
