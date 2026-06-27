@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { createEntryInSupabase } from "@/lib/supabase/save-entry";
 import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
+import { useGroups } from "@/lib/groups/GroupProvider";
 import { useSavedTags } from "@/lib/hooks/useSavedTags";
 import { canonicalTagKey, commonTags, uniqueTagNames } from "@/lib/tags";
 import { TagPill } from "@/components/ui/TagPill";
@@ -27,6 +28,7 @@ type RankedTag = {
 export function EntryForm({ entries }: EntryFormProps) {
   const searchParams = useSearchParams();
   const { upsertEntry } = useFoodEntries();
+  const { activeGroupId } = useGroups();
   const [tagSourceEntries, setTagSourceEntries] = useState(entries);
   const [type, setType] = useState<EntryType>("home");
   const [wantToRecreate, setWantToRecreate] = useState(false);
@@ -112,7 +114,7 @@ export function EntryForm({ entries }: EntryFormProps) {
         data: { user }
       } = await supabase.auth.getUser();
       uploadedPhotos = await uploadEntryPhotos({ supabase, entryId, files, title });
-      const entry = buildLocalEntry({ id: entryId, form, title, type, wantToRecreate, tags, photos: uploadedPhotos });
+      const entry = buildLocalEntry({ id: entryId, form, title, type, wantToRecreate, tags, photos: uploadedPhotos, groupId: activeGroupId ?? undefined });
 
       await createEntryInSupabase(supabase, entry, { createdById: user?.id ?? null });
       upsertEntry({ ...entry, createdById: user?.id ?? undefined });
@@ -340,7 +342,8 @@ function buildLocalEntry({
   type,
   wantToRecreate,
   tags,
-  photos
+  photos,
+  groupId
 }: {
   id: string;
   form: FormData;
@@ -349,6 +352,7 @@ function buildLocalEntry({
   wantToRecreate: boolean;
   tags: string[];
   photos: FoodPhoto[];
+  groupId?: string;
 }): FoodEntry {
   return {
     id,
@@ -361,6 +365,7 @@ function buildLocalEntry({
     country: String(form.get("country") || "").trim() || undefined,
     entryDate: String(form.get("date") || "").trim() || new Date().toISOString().slice(0, 10),
     wantToRecreate,
+    groupId,
     tags: uniqueTagNames(tags),
     photos
   };

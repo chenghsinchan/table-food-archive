@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { FoodEntry } from "@/types/food";
+import { useGroups } from "@/lib/groups/GroupProvider";
 
 type EntryCacheStatus = "idle" | "loading" | "refreshing" | "ready" | "error";
 
@@ -16,16 +17,23 @@ type EntryCacheContextValue = {
 };
 
 const STALE_AFTER_MS = 5 * 60_000;
+const ALL_KEY = "__all__";
 
-let cachedEntries: FoodEntry[] = [];
-let lastFetchedAt = 0;
-let inFlightRequest: Promise<FoodEntry[]> | null = null;
+type GroupCache = { entries: FoodEntry[]; fetchedAt: number };
+
+// Entries are cached per active group so switching groups is instant and never
+// leaks one group's entries into another.
+const cacheByGroup = new Map<string, GroupCache>();
+const inFlightByGroup = new Map<string, Promise<FoodEntry[]>>();
 
 const EntryCacheContext = createContext<EntryCacheContextValue | null>(null);
 
-async function fetchEntries() {
-  if (!inFlightRequest) {
-    inFlightRequest = fetch("/api/entries", {
+async function fetchEntries(groupId: string | null) {
+  const key = groupId ?? ALL_KEY;
+
+  if (!inFlightByGroup.has(key)) {
+    const url = groupId ? `/api/entries?group=${encodeURIComponent(groupId)}` : "/api/entries";
+    const request = fetch(url, {
       cache: "no-store",
       headers: { Accept: "application/json" }
     })
@@ -37,80 +45,99 @@ async function fetchEntries() {
         return response.json() as Promise<FoodEntry[]>;
       })
       .finally(() => {
-        inFlightRequest = null;
+        inFlightByGroup.delete(key);
       });
+
+    inFlightByGroup.set(key, request);
   }
 
-  return inFlightRequest;
+  return inFlightByGroup.get(key)!;
 }
 
 export function EntryCacheProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [entries, setEntries] = useState(cachedEntries);
-  const [status, setStatus] = useState<EntryCacheStatus>(cachedEntries.length ? "ready" : "idle");
+  const { activeGroupId, status: groupStatus } = useGroups();
+  const groupKey = activeGroupId ?? ALL_KEY;
+
+  const [entries, setEntries] = useState<FoodEntry[]>(() => cacheByGroup.get(groupKey)?.entries ?? []);
+  const [status, setStatus] = useState<EntryCacheStatus>(cacheByGroup.get(groupKey)?.entries.length ? "ready" : "idle");
   const [error, setError] = useState("");
-  const mountedRef = useRef(false);
 
-  const refreshEntries = useCallback(async (options: { background?: boolean; force?: boolean } = {}) => {
-    const hasEntries = cachedEntries.length > 0;
-    const isFresh = Date.now() - lastFetchedAt < STALE_AFTER_MS;
+  const refreshEntries = useCallback(
+    async (options: { background?: boolean; force?: boolean } = {}) => {
+      const cached = cacheByGroup.get(groupKey);
+      const hasEntries = (cached?.entries.length ?? 0) > 0;
+      const isFresh = cached ? Date.now() - cached.fetchedAt < STALE_AFTER_MS : false;
 
-    if (!options.force && hasEntries && isFresh) {
-      setEntries(cachedEntries);
-      setStatus("ready");
-      return;
-    }
+      if (!options.force && hasEntries && isFresh) {
+        setEntries(cached!.entries);
+        setStatus("ready");
+        return;
+      }
 
-    setStatus(options.background || hasEntries ? "refreshing" : "loading");
-    setError("");
+      setStatus(options.background || hasEntries ? "refreshing" : "loading");
+      setError("");
 
-    try {
-      const nextEntries = await fetchEntries();
-      cachedEntries = nextEntries;
-      lastFetchedAt = Date.now();
-      setEntries(nextEntries);
-      setStatus("ready");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not refresh TABLE entries.");
-      setStatus(hasEntries ? "ready" : "error");
-    }
-  }, []);
+      try {
+        const nextEntries = await fetchEntries(activeGroupId ?? null);
+        cacheByGroup.set(groupKey, { entries: nextEntries, fetchedAt: Date.now() });
+        setEntries(nextEntries);
+        setStatus("ready");
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Could not refresh TABLE entries.");
+        setStatus(hasEntries ? "ready" : "error");
+      }
+    },
+    [groupKey, activeGroupId]
+  );
 
+  // Load (or swap to) the active group's entries whenever the active group changes.
   useEffect(() => {
-    if (mountedRef.current) {
+    if (groupStatus === "loading") {
       return;
     }
 
-    mountedRef.current = true;
-    refreshEntries({ background: cachedEntries.length > 0 });
-  }, [refreshEntries]);
+    const cached = cacheByGroup.get(groupKey);
+    setEntries(cached?.entries ?? []);
+    setStatus(cached?.entries.length ? "ready" : "idle");
+    refreshEntries({ background: (cached?.entries.length ?? 0) > 0 });
+  }, [groupKey, groupStatus, refreshEntries]);
 
+  // Soft refresh when returning to a main tab and the cache is stale.
   useEffect(() => {
     if (!["/", "/tonight", "/love"].includes(pathname)) {
       return;
     }
 
-    if (cachedEntries.length && Date.now() - lastFetchedAt >= STALE_AFTER_MS) {
+    const cached = cacheByGroup.get(groupKey);
+    if (cached?.entries.length && Date.now() - cached.fetchedAt >= STALE_AFTER_MS) {
       refreshEntries({ background: true });
     }
-  }, [pathname, refreshEntries]);
+  }, [pathname, groupKey, refreshEntries]);
 
-  const value = useMemo<EntryCacheContextValue>(() => ({
-    entries,
-    status,
-    error,
-    refreshEntries,
-    upsertEntry(entry) {
-      cachedEntries = [entry, ...cachedEntries.filter((candidate) => candidate.id !== entry.id)];
-      setEntries(cachedEntries);
-      setStatus("ready");
-    },
-    removeEntry(entryId) {
-      cachedEntries = cachedEntries.filter((entry) => entry.id !== entryId);
-      setEntries(cachedEntries);
-      setStatus("ready");
-    }
-  }), [entries, error, refreshEntries, status]);
+  const value = useMemo<EntryCacheContextValue>(
+    () => ({
+      entries,
+      status,
+      error,
+      refreshEntries,
+      upsertEntry(entry) {
+        const cached = cacheByGroup.get(groupKey);
+        const nextEntries = [entry, ...(cached?.entries ?? []).filter((candidate) => candidate.id !== entry.id)];
+        cacheByGroup.set(groupKey, { entries: nextEntries, fetchedAt: cached?.fetchedAt ?? Date.now() });
+        setEntries(nextEntries);
+        setStatus("ready");
+      },
+      removeEntry(entryId) {
+        const cached = cacheByGroup.get(groupKey);
+        const nextEntries = (cached?.entries ?? []).filter((entry) => entry.id !== entryId);
+        cacheByGroup.set(groupKey, { entries: nextEntries, fetchedAt: cached?.fetchedAt ?? Date.now() });
+        setEntries(nextEntries);
+        setStatus("ready");
+      }
+    }),
+    [entries, status, error, refreshEntries, groupKey]
+  );
 
   return <EntryCacheContext.Provider value={value}>{children}</EntryCacheContext.Provider>;
 }

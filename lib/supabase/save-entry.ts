@@ -21,6 +21,7 @@ export async function createEntryInSupabase(supabase: SupabaseClient, entry: Foo
     entry_date: entry.entryDate,
     want_to_recreate: entry.wantToRecreate ?? false,
     is_loved: entry.isLoved ?? false,
+    group_id: entry.groupId ?? null,
     created_by: options.createdById ?? entry.createdById ?? null,
     is_archived: false
   });
@@ -55,6 +56,7 @@ export async function saveEntryToSupabase(supabase: SupabaseClient, entry: FoodE
         entry_date: entry.entryDate,
         want_to_recreate: entry.wantToRecreate ?? false,
         is_loved: entry.isLoved ?? false,
+        group_id: entry.groupId ?? null,
         created_by: options.createdById ?? entry.createdById ?? null,
         is_archived: false
       },

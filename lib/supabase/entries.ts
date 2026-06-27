@@ -29,6 +29,7 @@ type EntryRow = {
   entry_date: string;
   want_to_recreate?: boolean | null;
   is_loved?: boolean | null;
+  group_id?: string | null;
   created_by: string | null;
   updated_at?: string | null;
   created_at?: string | null;
@@ -78,6 +79,7 @@ function transformEntry(row: EntryRow, profiles: Map<string, ProfileRow> = new M
     entryDate: row.entry_date,
     wantToRecreate: row.want_to_recreate ?? false,
     isLoved: (row.is_loved ?? false) || (row.food_entry_tags ?? []).some((relation) => relation.tags?.name === "Love"),
+    groupId: row.group_id ?? undefined,
     createdById: row.created_by ?? undefined,
     addedBy: row.created_by
       ? (() => {
@@ -123,18 +125,23 @@ async function getProfilesForEntries(
   return new Map((data as ProfileRow[] | null | undefined)?.map((profile) => [profile.id, profile]) ?? []);
 }
 
-export async function getFoodEntries() {
+export async function getFoodEntries(groupId?: string) {
   const supabase = await createClient();
 
   if (!supabase) {
     return seedEntries;
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("food_entries")
     .select("*, photos(id,image_url,thumbnail_url,storage_path), food_entry_tags(tags(name))")
-    .eq("is_archived", false)
-    .order("entry_date", { ascending: false });
+    .eq("is_archived", false);
+
+  if (groupId) {
+    query = query.eq("group_id", groupId);
+  }
+
+  const { data, error } = await query.order("entry_date", { ascending: false });
 
   if (error) {
     return [];
