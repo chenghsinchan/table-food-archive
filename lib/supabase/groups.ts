@@ -130,6 +130,38 @@ export async function getPendingInvitesForEmail(supabase: SupabaseClient, email:
   }));
 }
 
+/** Create a group and add the creator as its owner. Returns the new group id. */
+export async function createGroup(
+  supabase: SupabaseClient,
+  userId: string,
+  name: string,
+  description?: string
+): Promise<string> {
+  const { data, error } = await supabase
+    .from("groups")
+    .insert({ name: name.trim(), description: description?.trim() || null, created_by: userId })
+    .select("id")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  const groupId = (data as { id: string }).id;
+
+  const { error: memberError } = await supabase
+    .from("group_members")
+    .insert({ group_id: groupId, user_id: userId, role: "owner" });
+
+  if (memberError) {
+    // Roll back the empty group so we never leave an orphan the user can't see.
+    await supabase.from("groups").delete().eq("id", groupId);
+    throw memberError;
+  }
+
+  return groupId;
+}
+
 /** True if the user is a member of at least one group. */
 export async function getMembershipCount(supabase: SupabaseClient, userId: string): Promise<number> {
   const { count, error } = await supabase

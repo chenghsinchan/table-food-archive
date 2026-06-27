@@ -155,6 +155,11 @@ export function ProfileEditor() {
               autoComplete="name"
             />
           </label>
+          {email ? (
+            <p className="text-left font-mono text-xs uppercase tracking-[0.16em] text-muted">
+              Signed in as {email}
+            </p>
+          ) : null}
         </div>
       </section>
 

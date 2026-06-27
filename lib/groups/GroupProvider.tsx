@@ -4,12 +4,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { Group, GroupMember } from "@/types/food";
 import { createClient } from "@/lib/supabase/client";
 import {
+  createGroup as createGroupInSupabase,
   getActiveGroupId,
   getGroupMembers,
   getUserGroups,
   setActiveGroupId as persistActiveGroupId
 } from "@/lib/supabase/groups";
-import { ACTIVE_GROUP_STORAGE_KEY } from "@/lib/groups/constants";
+import { ACTIVE_GROUP_STORAGE_KEY, MAX_GROUPS_PER_USER } from "@/lib/groups/constants";
 
 type GroupContextValue = {
   groups: Group[];
@@ -17,7 +18,9 @@ type GroupContextValue = {
   activeGroupId: string | null;
   members: GroupMember[];
   status: "loading" | "ready" | "no-group";
+  canCreateGroup: boolean;
   selectGroup: (groupId: string) => Promise<void>;
+  createGroup: (name: string, description?: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -126,6 +129,35 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     [groups, userId]
   );
 
+  const createGroup = useCallback(
+    async (name: string, description?: string) => {
+      const supabase = createClient();
+
+      if (!supabase || !userId) {
+        throw new Error("You need to be signed in to create a group.");
+      }
+
+      if (groups.length >= MAX_GROUPS_PER_USER) {
+        throw new Error("You can only join up to 2 groups for now.");
+      }
+
+      const newGroupId = await createGroupInSupabase(supabase, userId, name, description);
+
+      await loadGroups();
+
+      setActiveGroupId(newGroupId);
+      storeActiveGroup(newGroupId);
+
+      try {
+        await persistActiveGroupId(supabase, userId, newGroupId);
+        setMembers(await getGroupMembers(supabase, newGroupId));
+      } catch {
+        // selection still applies locally
+      }
+    },
+    [groups.length, userId, loadGroups]
+  );
+
   const value = useMemo<GroupContextValue>(() => {
     const activeGroup = groups.find((group) => group.id === activeGroupId) ?? null;
 
@@ -135,10 +167,12 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       activeGroupId,
       members,
       status,
+      canCreateGroup: groups.length < MAX_GROUPS_PER_USER,
       selectGroup,
+      createGroup,
       refresh: loadGroups
     };
-  }, [groups, activeGroupId, members, status, selectGroup, loadGroups]);
+  }, [groups, activeGroupId, members, status, selectGroup, createGroup, loadGroups]);
 
   return <GroupContext.Provider value={value}>{children}</GroupContext.Provider>;
 }
