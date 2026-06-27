@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import { NeedInvitation } from "@/components/auth/NeedInvitation";
 import { ProfileSetup } from "@/components/auth/ProfileSetup";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { isAllowedEmail } from "@/lib/auth/allowed";
 import { createClient } from "@/lib/supabase/client";
+import { getMembershipCount } from "@/lib/supabase/groups";
 
 type AuthGateProps = {
   children: React.ReactNode;
@@ -16,6 +18,7 @@ type GateState =
   | { status: "loading" }
   | { status: "ready" }
   | { status: "profile"; user: User }
+  | { status: "no-invite"; email?: string | null }
   | { status: "private" };
 
 export function AuthGate({ children }: AuthGateProps) {
@@ -44,13 +47,18 @@ export function AuthGate({ children }: AuthGateProps) {
         return;
       }
 
+      // Access is granted to the original allowed users, OR to anyone who is
+      // already a member of a group (invited friends become members once they
+      // accept an invite). Non-allowed, non-members are asked for an invite.
       if (!isAllowedEmail(user.email)) {
-        await supabase.auth.signOut();
-        if (active) {
-          setState({ status: "private" });
-          router.replace("/login?private=1");
+        const memberships = await getMembershipCount(supabase, user.id);
+
+        if (!active) return;
+
+        if (memberships === 0) {
+          setState({ status: "no-invite", email: user.email });
+          return;
         }
-        return;
       }
 
       const { data: profile } = await supabase
@@ -86,6 +94,10 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (state.status === "profile") {
     return <ProfileSetup user={state.user} onComplete={() => setState({ status: "ready" })} />;
+  }
+
+  if (state.status === "no-invite") {
+    return <NeedInvitation email={state.email} />;
   }
 
   if (state.status === "private") {

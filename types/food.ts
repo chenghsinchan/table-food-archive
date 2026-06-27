@@ -29,7 +29,35 @@ export type FoodEntry = {
   wantToRecreate?: boolean;
   isLoved?: boolean;
   createdById?: string;
+  groupId?: string;
   addedBy?: EntryContributor;
   tags: string[];
   photos: FoodPhoto[];
+};
+
+export type GroupRole = "owner" | "member";
+
+export type Group = {
+  id: string;
+  name: string;
+  description?: string;
+  role: GroupRole;
+};
+
+export type GroupMember = {
+  userId: string;
+  role: GroupRole;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  initials: string;
+};
+
+export type GroupInvite = {
+  id: string;
+  groupId: string;
+  groupName?: string;
+  invitedEmail: string;
+  status: "pending" | "accepted" | "declined" | "expired";
+  token: string;
 };

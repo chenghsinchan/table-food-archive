@@ -1,0 +1,145 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Group, GroupInvite, GroupMember, GroupRole } from "@/types/food";
+
+function initialsFor(name: string) {
+  return (
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "T"
+  );
+}
+
+type GroupMembershipRow = {
+  role: GroupRole;
+  groups: { id: string; name: string; description: string | null } | null;
+};
+
+/** Groups the signed-in user belongs to (with their role in each). */
+export async function getUserGroups(supabase: SupabaseClient, userId: string): Promise<Group[]> {
+  const { data, error } = await supabase
+    .from("group_members")
+    .select("role, groups(id, name, description)")
+    .eq("user_id", userId);
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as unknown as GroupMembershipRow[])
+    .filter((row) => row.groups)
+    .map((row) => ({
+      id: row.groups!.id,
+      name: row.groups!.name,
+      description: row.groups!.description ?? undefined,
+      role: row.role
+    }));
+}
+
+type MemberRow = { user_id: string; role: GroupRole };
+type ProfileRow = { id: string; display_name: string | null; email: string; avatar_url: string | null };
+
+/** Members of a group, joined with their profile name/avatar. */
+export async function getGroupMembers(supabase: SupabaseClient, groupId: string): Promise<GroupMember[]> {
+  const { data: memberRows, error } = await supabase
+    .from("group_members")
+    .select("user_id, role")
+    .eq("group_id", groupId);
+
+  if (error) {
+    throw error;
+  }
+
+  const members = (memberRows ?? []) as MemberRow[];
+
+  if (!members.length) {
+    return [];
+  }
+
+  const ids = members.map((member) => member.user_id);
+  const { data: profileRows } = await supabase
+    .from("profiles")
+    .select("id, display_name, email, avatar_url")
+    .in("id", ids);
+
+  const profiles = new Map(((profileRows ?? []) as ProfileRow[]).map((profile) => [profile.id, profile]));
+
+  return members
+    .map((member) => {
+      const profile = profiles.get(member.user_id);
+      const name = profile?.display_name || profile?.email?.split("@")[0] || "TABLE";
+
+      return {
+        userId: member.user_id,
+        role: member.role,
+        name,
+        email: profile?.email ?? "",
+        avatarUrl: profile?.avatar_url ?? undefined,
+        initials: initialsFor(name)
+      };
+    })
+    .sort((a, b) => (a.role === b.role ? a.name.localeCompare(b.name) : a.role === "owner" ? -1 : 1));
+}
+
+/** The group id the user last chose (stored on their profile). */
+export async function getActiveGroupId(supabase: SupabaseClient, userId: string): Promise<string | null> {
+  const { data } = await supabase.from("profiles").select("active_group_id").eq("id", userId).maybeSingle();
+
+  return (data?.active_group_id as string | null) ?? null;
+}
+
+/** Remember the user's active group on their profile. */
+export async function setActiveGroupId(supabase: SupabaseClient, userId: string, groupId: string) {
+  const { error } = await supabase.from("profiles").update({ active_group_id: groupId }).eq("id", userId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+/** Pending invites addressed to this email (so a new person can see/accept). */
+export async function getPendingInvitesForEmail(supabase: SupabaseClient, email: string): Promise<GroupInvite[]> {
+  const normalized = email.trim().toLowerCase();
+  const { data, error } = await supabase
+    .from("group_invites")
+    .select("id, group_id, invited_email, status, token, groups(name)")
+    .eq("status", "pending")
+    .ilike("invited_email", normalized);
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    group_id: string;
+    invited_email: string;
+    status: GroupInvite["status"];
+    token: string;
+    groups: { name: string } | null;
+  }>).map((row) => ({
+    id: row.id,
+    groupId: row.group_id,
+    groupName: row.groups?.name,
+    invitedEmail: row.invited_email,
+    status: row.status,
+    token: row.token
+  }));
+}
+
+/** True if the user is a member of at least one group. */
+export async function getMembershipCount(supabase: SupabaseClient, userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("group_members")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
