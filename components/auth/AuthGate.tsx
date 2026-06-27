@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import type { GroupInvite } from "@/types/food";
+import { InviteAccept } from "@/components/auth/InviteAccept";
 import { NeedInvitation } from "@/components/auth/NeedInvitation";
 import { ProfileSetup } from "@/components/auth/ProfileSetup";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { isAllowedEmail } from "@/lib/auth/allowed";
 import { createClient } from "@/lib/supabase/client";
-import { getMembershipCount } from "@/lib/supabase/groups";
+import { getMembershipCount, getPendingInvitesForEmail } from "@/lib/supabase/groups";
 
 type AuthGateProps = {
   children: React.ReactNode;
@@ -18,6 +20,7 @@ type GateState =
   | { status: "loading" }
   | { status: "ready" }
   | { status: "profile"; user: User }
+  | { status: "invite"; invites: GroupInvite[] }
   | { status: "no-invite"; email?: string | null }
   | { status: "private" };
 
@@ -56,6 +59,15 @@ export function AuthGate({ children }: AuthGateProps) {
         if (!active) return;
 
         if (memberships === 0) {
+          const invites = user.email ? await getPendingInvitesForEmail(supabase, user.email) : [];
+
+          if (!active) return;
+
+          if (invites.length) {
+            setState({ status: "invite", invites });
+            return;
+          }
+
           setState({ status: "no-invite", email: user.email });
           return;
         }
@@ -94,6 +106,10 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (state.status === "profile") {
     return <ProfileSetup user={state.user} onComplete={() => setState({ status: "ready" })} />;
+  }
+
+  if (state.status === "invite") {
+    return <InviteAccept invites={state.invites} />;
   }
 
   if (state.status === "no-invite") {

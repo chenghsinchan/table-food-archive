@@ -41,6 +41,20 @@ Note: the LOVE tab is served by the component named `RecipesExperience` (an earl
 - Ways to close: the X button (top right), tapping the dimmed backdrop, the Esc key, or **swiping up past the end of the card** ("pull up past the end" — scroll normally, and once you reach the bottom keep swiping up to dismiss; short cards close on any firm upward swipe). Trackpad/mouse: scroll past the bottom.
 - The swipe-to-close gesture is intentionally disabled while editing, typing, or interacting with buttons/inputs/links.
 
+## Group Sharing (small private groups)
+
+TABLE supports small private groups so the archive can be shared with a few friends.
+
+- **Limits:** each user can be in at most 2 groups; each group at most 4 members (enforced by database triggers and in the UI).
+- **Privacy:** Row Level Security restricts every food entry, photo, and entry-tag to members of the entry's group. A `food_entries.group_id` column ties each entry to a group, and a `is_group_member()` helper backs the policies. The old anonymous/public read access was removed — login is required.
+- **Default group:** all original Cheng + Saulė content lives in the "Cheng + Saulė Home" group. The two allowed emails are auto-enrolled into it via a trigger on profile creation.
+- **Active group:** the `GroupProvider` ([lib/groups/GroupProvider.tsx](lib/groups/GroupProvider.tsx)) tracks which group is active (remembered on `profiles.active_group_id` + localStorage). HOME / TONIGHT / LOVE and new-entry saves are all scoped to the active group via the group-aware entry cache.
+- **Login gate:** [AuthGate](components/auth/AuthGate.tsx) admits the allowed emails OR any group member; people with a pending invite see an accept screen; everyone else sees a "need invitation" screen.
+- **Group panel:** on the profile screen ([GroupPanel](components/profile/GroupPanel.tsx)) — current group, members, switch group, create group, and invite by email.
+- **Invites (V1 = link, no email provider):** a member creates an invite, which produces a copyable link (`/invite/<token>`) to send manually. The recipient logs in with that Google email and accepts. Real email sending (e.g. Resend + a Supabase Edge Function) can be added later without rework.
+- **SQL files:** `supabase/groups-migration.sql` (tables, backfill, RLS) and `supabase/groups-phase2.sql` (auto-enroll trigger), both already applied.
+- **Known limitation:** photo *files* sit in a public storage bucket, so a raw image URL is still viewable without login. The database (titles, notes, group membership) is fully private. Locking image files behind signed URLs is a possible future phase.
+
 ## Supabase Setup
 
 The app uses frontend-safe Supabase variables only:

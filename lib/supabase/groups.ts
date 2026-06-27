@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Group, GroupInvite, GroupMember, GroupRole } from "@/types/food";
+import { MAX_MEMBERS_PER_GROUP } from "@/lib/groups/constants";
 
 function initialsFor(name: string) {
   return (
@@ -174,4 +175,127 @@ export async function getMembershipCount(supabase: SupabaseClient, userId: strin
   }
 
   return count ?? 0;
+}
+
+async function getGroupMemberCount(supabase: SupabaseClient, groupId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("group_members")
+    .select("id", { count: "exact", head: true })
+    .eq("group_id", groupId);
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
+/**
+ * Create (or reuse) a pending invite for an email to join a group, and return
+ * its share token. Enforces the 4-member limit and avoids duplicate invites.
+ */
+export async function createInvite(
+  supabase: SupabaseClient,
+  groupId: string,
+  invitedEmail: string,
+  invitedBy: string
+): Promise<{ token: string }> {
+  const email = invitedEmail.trim().toLowerCase();
+
+  if (!email || !email.includes("@")) {
+    throw new Error("Enter a valid email address.");
+  }
+
+  if ((await getGroupMemberCount(supabase, groupId)) >= MAX_MEMBERS_PER_GROUP) {
+    throw new Error("This group already has 4 members.");
+  }
+
+  // Reuse an existing invite for this email + group instead of duplicating.
+  const { data: existing } = await supabase
+    .from("group_invites")
+    .select("id, token, status")
+    .eq("group_id", groupId)
+    .ilike("invited_email", email)
+    .maybeSingle();
+
+  if (existing?.status === "pending") {
+    return { token: existing.token as string };
+  }
+
+  const { data, error } = await supabase
+    .from("group_invites")
+    .insert({ group_id: groupId, invited_email: email, invited_by: invitedBy })
+    .select("token")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      // Lost a race / non-pending duplicate: return whatever invite exists.
+      const { data: dup } = await supabase
+        .from("group_invites")
+        .select("token")
+        .eq("group_id", groupId)
+        .ilike("invited_email", email)
+        .maybeSingle();
+
+      if (dup?.token) {
+        return { token: dup.token as string };
+      }
+    }
+
+    throw error;
+  }
+
+  return { token: (data as { token: string }).token };
+}
+
+/** Look up a pending invite by its share token. */
+export async function getInviteByToken(supabase: SupabaseClient, token: string): Promise<GroupInvite | null> {
+  const { data } = await supabase
+    .from("group_invites")
+    .select("id, group_id, invited_email, status, token")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id as string,
+    groupId: data.group_id as string,
+    invitedEmail: data.invited_email as string,
+    status: data.status as GroupInvite["status"],
+    token: data.token as string
+  };
+}
+
+/** Accept an invite: join the group and mark the invite accepted. */
+export async function acceptInvite(
+  supabase: SupabaseClient,
+  invite: { id: string; groupId: string },
+  userId: string
+): Promise<void> {
+  const { error: joinError } = await supabase
+    .from("group_members")
+    .insert({ group_id: invite.groupId, user_id: userId, role: "member" });
+
+  if (joinError && joinError.code !== "23505") {
+    // Surface the friendly limit messages raised by the database triggers.
+    throw new Error(joinError.message || "Could not join this group.");
+  }
+
+  await supabase
+    .from("group_invites")
+    .update({ status: "accepted", accepted_at: new Date().toISOString() })
+    .eq("id", invite.id);
+}
+
+/** Decline an invite. */
+export async function declineInvite(supabase: SupabaseClient, inviteId: string): Promise<void> {
+  const { error } = await supabase.from("group_invites").update({ status: "declined" }).eq("id", inviteId);
+
+  if (error) {
+    throw error;
+  }
 }
