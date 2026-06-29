@@ -138,17 +138,19 @@ export async function createGroup(
   name: string,
   description?: string
 ): Promise<string> {
-  const { data, error } = await supabase
+  // Generate the id on the client so we never need to read the row back right
+  // after inserting it — the group's read rule requires membership, which only
+  // exists after the next insert, so a `.select()` here would return nothing.
+  const groupId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+
+  const { error } = await supabase
     .from("groups")
-    .insert({ name: name.trim(), description: description?.trim() || null, created_by: userId })
-    .select("id")
-    .single();
+    .insert({ id: groupId, name: name.trim(), description: description?.trim() || null, created_by: userId });
 
   if (error) {
     throw error;
   }
-
-  const groupId = (data as { id: string }).id;
 
   const { error: memberError } = await supabase
     .from("group_members")
@@ -157,10 +159,23 @@ export async function createGroup(
   if (memberError) {
     // Roll back the empty group so we never leave an orphan the user can't see.
     await supabase.from("groups").delete().eq("id", groupId);
-    throw memberError;
+    throw new Error(memberError.message || "Could not create the group.");
   }
 
   return groupId;
+}
+
+/** Remove a member from a group (also used to leave a group yourself). */
+export async function removeMember(supabase: SupabaseClient, groupId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("group_members")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message || "Could not remove this member.");
+  }
 }
 
 /** True if the user is a member of at least one group. */

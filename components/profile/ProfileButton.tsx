@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { UserRound } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar";
 import { createClient } from "@/lib/supabase/client";
 
 type ProfilePreview = {
@@ -77,15 +77,14 @@ export function ProfileButton() {
       href="/profile"
       aria-label="Open profile"
       title="Profile"
-      className="tap-scale grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-white/82 text-ink"
+      className="tap-scale block size-12 shrink-0 overflow-hidden rounded-full border border-border bg-white/82 text-ink"
     >
-      {profile.avatarUrl ? (
-        <img src={profile.avatarUrl} alt="" loading="lazy" className="size-full object-cover" />
-      ) : profile.name ? (
-        <span className="text-sm font-semibold">{initialsFor(profile.name)}</span>
-      ) : (
-        <UserRound aria-hidden="true" size={20} strokeWidth={1.8} />
-      )}
+      <Avatar
+        src={profile.avatarUrl}
+        name={profile.name}
+        initials={initialsFor(profile.name || "TABLE")}
+        className="size-full text-sm"
+      />
     </Link>
   );
 }

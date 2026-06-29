@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Plus, UserPlus, Users } from "lucide-react";
+import { Check, Copy, Plus, UserMinus, UserPlus, Users } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar";
 import { useGroups } from "@/lib/groups/GroupProvider";
 import { createClient } from "@/lib/supabase/client";
 import { createInvite } from "@/lib/supabase/groups";
@@ -9,7 +10,18 @@ import { MAX_MEMBERS_PER_GROUP } from "@/lib/groups/constants";
 import { cn } from "@/lib/utils/cn";
 
 export function GroupPanel() {
-  const { groups, activeGroup, activeGroupId, members, status, canCreateGroup, selectGroup, createGroup } = useGroups();
+  const {
+    groups,
+    activeGroup,
+    activeGroupId,
+    members,
+    currentUserId,
+    status,
+    canCreateGroup,
+    selectGroup,
+    createGroup,
+    removeMember
+  } = useGroups();
 
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
@@ -23,6 +35,9 @@ export function GroupPanel() {
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [copied, setCopied] = useState(false);
+
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState("");
 
   const groupIsFull = members.length >= MAX_MEMBERS_PER_GROUP;
 
@@ -70,14 +85,6 @@ export function GroupPanel() {
     }
   }
 
-  if (status === "loading") {
-    return (
-      <section className="liquid-island rounded-[28px] p-6">
-        <p className="text-center text-sm text-muted">Loading your group…</p>
-      </section>
-    );
-  }
-
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -102,6 +109,29 @@ export function GroupPanel() {
     }
   }
 
+  async function handleRemove(memberUserId: string) {
+    if (confirmRemoveId !== memberUserId) {
+      setConfirmRemoveId(memberUserId);
+      setRemoveError("");
+      return;
+    }
+
+    try {
+      await removeMember(memberUserId);
+      setConfirmRemoveId(null);
+    } catch (caught) {
+      setRemoveError(caught instanceof Error ? caught.message : "Could not remove this member.");
+    }
+  }
+
+  if (status === "loading") {
+    return (
+      <section className="liquid-island rounded-[28px] p-6">
+        <p className="text-center text-sm text-muted">Loading your group…</p>
+      </section>
+    );
+  }
+
   return (
     <section className="liquid-island space-y-6 rounded-[28px] p-6">
       <header className="space-y-1">
@@ -114,22 +144,43 @@ export function GroupPanel() {
         <div className="space-y-3">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Members</p>
           <ul className="space-y-2">
-            {members.map((member) => (
-              <li key={member.userId} className="flex items-center gap-3">
-                <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-white text-xs font-semibold text-ink">
-                  {member.avatarUrl ? (
-                    <img src={member.avatarUrl} alt="" loading="lazy" className="size-full object-cover" />
-                  ) : (
-                    member.initials
-                  )}
-                </span>
-                <span className="text-sm font-medium text-ink">{member.name}</span>
-                {member.role === "owner" ? (
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Owner</span>
-                ) : null}
-              </li>
-            ))}
+            {members.map((member) => {
+              const isSelf = member.userId === currentUserId;
+
+              return (
+                <li key={member.userId} className="flex items-center gap-3">
+                  <Avatar
+                    src={member.avatarUrl}
+                    name={member.name}
+                    initials={member.initials}
+                    className="size-9 shrink-0 border border-border"
+                  />
+                  <span className="flex-1 truncate text-sm font-medium text-ink">
+                    {member.name}
+                    {isSelf ? <span className="text-muted"> (you)</span> : null}
+                  </span>
+                  {member.role === "owner" ? (
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Owner</span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(member.userId)}
+                    className={cn(
+                      "tap-scale inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition",
+                      confirmRemoveId === member.userId
+                        ? "bg-ink text-white"
+                        : "text-muted hover:text-ink"
+                    )}
+                    aria-label={isSelf ? "Leave group" : `Remove ${member.name}`}
+                  >
+                    <UserMinus aria-hidden="true" size={14} />
+                    {confirmRemoveId === member.userId ? (isSelf ? "Leave?" : "Remove?") : isSelf ? "Leave" : null}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
+          {removeError ? <p className="text-sm leading-6 text-accent">{removeError}</p> : null}
         </div>
       ) : null}
 
@@ -156,25 +207,24 @@ export function GroupPanel() {
         </div>
       ) : null}
 
+      {/* ---- Invite a friend ---- */}
       {activeGroup ? (
-        <div className="border-t border-border pt-5">
+        <div className="space-y-3 border-t border-border pt-5">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Invite a friend</p>
           {groupIsFull ? (
-            <p className="flex items-center justify-center gap-2 text-center text-sm text-muted">
+            <p className="flex items-center gap-2 text-sm text-muted">
               <Users aria-hidden="true" size={15} />
               This group already has 4 members.
             </p>
           ) : showInvite ? (
             <form onSubmit={handleInvite} className="space-y-3">
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-muted">Invite by email</span>
-                <input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(event) => setInviteEmail(event.target.value)}
-                  placeholder="friend@gmail.com"
-                  className="min-h-12 rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
-                />
-              </label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(event) => setInviteEmail(event.target.value)}
+                placeholder="friend@gmail.com"
+                className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
+              />
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -212,7 +262,7 @@ export function GroupPanel() {
                 </div>
               ) : null}
 
-              {inviteError ? <p className="text-center text-sm leading-6 text-accent">{inviteError}</p> : null}
+              {inviteError ? <p className="text-sm leading-6 text-accent">{inviteError}</p> : null}
             </form>
           ) : (
             <button
@@ -221,34 +271,30 @@ export function GroupPanel() {
               className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
             >
               <UserPlus aria-hidden="true" size={17} />
-              Invite member
+              Invite a friend
             </button>
           )}
         </div>
       ) : null}
 
-      <div className="border-t border-border pt-5">
+      {/* ---- Create a group ---- */}
+      <div className="space-y-3 border-t border-border pt-5">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Create a group</p>
         {canCreateGroup ? (
           showCreate ? (
             <form onSubmit={handleCreate} className="space-y-3">
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-muted">Group name</span>
-                <input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Dinner Club"
-                  className="min-h-12 rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
-                />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-muted">Description (optional)</span>
-                <input
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Friends who cook together"
-                  className="min-h-12 rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
-                />
-              </label>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Group name (e.g. Dinner Club)"
+                className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
+              />
+              <input
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Description (optional)"
+                className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
+              />
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -277,16 +323,16 @@ export function GroupPanel() {
               className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
             >
               <Plus aria-hidden="true" size={17} />
-              Add group
+              Create a group
             </button>
           )
         ) : (
-          <p className="flex items-center justify-center gap-2 text-center text-sm text-muted">
+          <p className="flex items-center gap-2 text-sm text-muted">
             <Users aria-hidden="true" size={15} />
             You can only join up to 2 groups for now.
           </p>
         )}
-        {error ? <p className="mt-3 text-center text-sm leading-6 text-accent">{error}</p> : null}
+        {error ? <p className="text-sm leading-6 text-accent">{error}</p> : null}
       </div>
     </section>
   );

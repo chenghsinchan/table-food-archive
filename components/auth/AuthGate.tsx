@@ -22,6 +22,7 @@ type GateState =
   | { status: "profile"; user: User }
   | { status: "invite"; invites: GroupInvite[] }
   | { status: "no-invite"; email?: string | null }
+  | { status: "error" }
   | { status: "private" };
 
 export function AuthGate({ children }: AuthGateProps) {
@@ -39,54 +40,59 @@ export function AuthGate({ children }: AuthGateProps) {
         return;
       }
 
-      const {
-        data: { user }
-      } = await supabase.auth.getUser();
-
-      if (!active) return;
-
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      // Access is granted to the original allowed users, OR to anyone who is
-      // already a member of a group (invited friends become members once they
-      // accept an invite). Non-allowed, non-members are asked for an invite.
-      if (!isAllowedEmail(user.email)) {
-        const memberships = await getMembershipCount(supabase, user.id);
+      try {
+        const {
+          data: { user }
+        } = await supabase.auth.getUser();
 
         if (!active) return;
 
-        if (memberships === 0) {
-          const invites = user.email ? await getPendingInvitesForEmail(supabase, user.email) : [];
+        if (!user) {
+          router.replace("/login");
+          return;
+        }
+
+        // Access is granted to the original allowed users, OR to anyone who is
+        // already a member of a group (invited friends become members once they
+        // accept an invite). Non-allowed, non-members are asked for an invite.
+        if (!isAllowedEmail(user.email)) {
+          const memberships = await getMembershipCount(supabase, user.id);
 
           if (!active) return;
 
-          if (invites.length) {
-            setState({ status: "invite", invites });
+          if (memberships === 0) {
+            const invites = user.email ? await getPendingInvitesForEmail(supabase, user.email) : [];
+
+            if (!active) return;
+
+            if (invites.length) {
+              setState({ status: "invite", invites });
+              return;
+            }
+
+            setState({ status: "no-invite", email: user.email });
             return;
           }
+        }
 
-          setState({ status: "no-invite", email: user.email });
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (!active) return;
+
+        if (!profile?.display_name) {
+          setState({ status: "profile", user });
           return;
         }
+
+        setState({ status: "ready" });
+      } catch {
+        // Never leave the user stuck on a spinner if a lookup fails.
+        if (active) setState({ status: "error" });
       }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!active) return;
-
-      if (!profile?.display_name) {
-        setState({ status: "profile", user });
-        return;
-      }
-
-      setState({ status: "ready" });
     }
 
     checkSession();
@@ -114,6 +120,24 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (state.status === "no-invite") {
     return <NeedInvitation email={state.email} />;
+  }
+
+  if (state.status === "error") {
+    return (
+      <div className="grid min-h-dvh place-items-center px-4 py-10">
+        <div className="liquid-island w-full max-w-sm space-y-4 rounded-[28px] p-7 text-center">
+          <h1 className="font-serif text-3xl italic leading-tight text-ink">Could not load TABLE</h1>
+          <p className="text-sm leading-6 text-muted">Check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="tap-scale inline-flex min-h-11 items-center justify-center rounded-full bg-ink px-6 text-sm font-semibold text-white"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (state.status === "private") {

@@ -8,6 +8,7 @@ import {
   getActiveGroupId,
   getGroupMembers,
   getUserGroups,
+  removeMember as removeMemberInSupabase,
   setActiveGroupId as persistActiveGroupId
 } from "@/lib/supabase/groups";
 import { ACTIVE_GROUP_STORAGE_KEY, MAX_GROUPS_PER_USER } from "@/lib/groups/constants";
@@ -17,10 +18,12 @@ type GroupContextValue = {
   activeGroup: Group | null;
   activeGroupId: string | null;
   members: GroupMember[];
+  currentUserId: string | null;
   status: "loading" | "ready" | "no-group";
   canCreateGroup: boolean;
   selectGroup: (groupId: string) => Promise<void>;
   createGroup: (name: string, description?: string) => Promise<void>;
+  removeMember: (memberUserId: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -158,6 +161,27 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     [groups.length, userId, loadGroups]
   );
 
+  const removeMember = useCallback(
+    async (memberUserId: string) => {
+      const supabase = createClient();
+
+      if (!supabase || !activeGroupId) {
+        return;
+      }
+
+      await removeMemberInSupabase(supabase, activeGroupId, memberUserId);
+
+      if (memberUserId === userId) {
+        // Removed yourself: your groups changed, so reload from scratch.
+        await loadGroups();
+        return;
+      }
+
+      setMembers(await getGroupMembers(supabase, activeGroupId));
+    },
+    [activeGroupId, userId, loadGroups]
+  );
+
   const value = useMemo<GroupContextValue>(() => {
     const activeGroup = groups.find((group) => group.id === activeGroupId) ?? null;
 
@@ -166,13 +190,15 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       activeGroup,
       activeGroupId,
       members,
+      currentUserId: userId,
       status,
       canCreateGroup: groups.length < MAX_GROUPS_PER_USER,
       selectGroup,
       createGroup,
+      removeMember,
       refresh: loadGroups
     };
-  }, [groups, activeGroupId, members, status, selectGroup, createGroup, loadGroups]);
+  }, [groups, activeGroupId, members, userId, status, selectGroup, createGroup, removeMember, loadGroups]);
 
   return <GroupContext.Provider value={value}>{children}</GroupContext.Provider>;
 }
