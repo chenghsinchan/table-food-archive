@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Pencil } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar";
 import { AvatarUploader } from "@/components/upload/AvatarUploader";
 import { createClient } from "@/lib/supabase/client";
 import { compressImageFile } from "@/lib/supabase/storage";
@@ -11,8 +12,22 @@ type ProfileState = {
   avatarUrl?: string;
 };
 
+function initialsFor(name: string) {
+  return (
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "T"
+  );
+}
+
 export function ProfileEditor() {
   const [profile, setProfile] = useState<ProfileState>({ name: "TABLE" });
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftName, setDraftName] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -70,12 +85,26 @@ export function ProfileEditor() {
     };
   }, []);
 
+  function startEditing() {
+    setDraftName(profile.name);
+    setAvatarFile(null);
+    setError("");
+    setSaved(false);
+    setIsEditing(true);
+  }
+
+  function cancelEditing() {
+    setIsEditing(false);
+    setAvatarFile(null);
+    setError("");
+  }
+
   async function saveProfile(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSaved(false);
 
-    const name = profile.name.trim();
+    const name = draftName.trim();
     if (!name) {
       setError("Add a display name first.");
       return;
@@ -133,6 +162,7 @@ export function ProfileEditor() {
       window.localStorage.setItem("table-profile", JSON.stringify(nextProfile));
       setProfile(nextProfile);
       setSaved(true);
+      setIsEditing(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save profile.");
     } finally {
@@ -140,16 +170,48 @@ export function ProfileEditor() {
     }
   }
 
+  // ---- Read-only view ----
+  if (!isEditing) {
+    return (
+      <section className="liquid-island rounded-[28px] p-6">
+        <div className="space-y-5 text-center">
+          <Avatar
+            src={profile.avatarUrl}
+            name={profile.name}
+            initials={initialsFor(profile.name)}
+            className="mx-auto size-24 border border-border text-2xl"
+          />
+          <div className="space-y-1">
+            <h2 className="font-serif text-3xl italic leading-tight text-ink">{profile.name}</h2>
+            {email ? (
+              <p className="font-mono text-xs uppercase tracking-[0.16em] text-muted">{email}</p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={startEditing}
+            className="tap-scale inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-surface-warm px-6 text-sm font-semibold text-ink"
+          >
+            <Pencil aria-hidden="true" size={16} />
+            Edit profile
+          </button>
+          {saved ? <p className="text-sm font-medium text-muted">Profile updated.</p> : null}
+        </div>
+      </section>
+    );
+  }
+
+  // ---- Edit view ----
   return (
     <form onSubmit={saveProfile} className="space-y-6">
       <section className="liquid-island rounded-[28px] p-6">
         <div className="space-y-5 text-center">
-          <AvatarUploader fallbackUrl={profile.avatarUrl} name={profile.name} onFileChange={setAvatarFile} />
+          <AvatarUploader fallbackUrl={profile.avatarUrl} name={draftName} onFileChange={setAvatarFile} />
           <label className="grid gap-2 text-left">
             <span className="text-sm font-medium text-muted">Display name</span>
             <input
-              value={profile.name}
-              onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))}
+              value={draftName}
+              onChange={(event) => setDraftName(event.target.value)}
               className="min-h-12 rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
               placeholder="Cheng"
               autoComplete="name"
@@ -163,16 +225,25 @@ export function ProfileEditor() {
         </div>
       </section>
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-pill bg-ink px-5 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-70"
-      >
-        <Check aria-hidden="true" size={18} />
-        {saving ? "Saving..." : "Save profile"}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={saving}
+          className="tap-scale flex min-h-14 flex-1 items-center justify-center gap-2 rounded-pill bg-ink px-5 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+        >
+          <Check aria-hidden="true" size={18} />
+          {saving ? "Saving..." : "Save profile"}
+        </button>
+        <button
+          type="button"
+          onClick={cancelEditing}
+          disabled={saving}
+          className="tap-scale min-h-14 rounded-pill bg-surface-warm px-6 text-base font-semibold text-ink disabled:opacity-70"
+        >
+          Cancel
+        </button>
+      </div>
 
-      {saved ? <p className="text-center text-sm font-medium text-muted">Profile updated.</p> : null}
       {error ? <p className="text-center text-sm leading-6 text-accent">{error}</p> : null}
     </form>
   );

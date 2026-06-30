@@ -9,7 +9,8 @@ import {
   getGroupMembers,
   getUserGroups,
   removeMember as removeMemberInSupabase,
-  setActiveGroupId as persistActiveGroupId
+  setActiveGroupId as persistActiveGroupId,
+  updateGroup as updateGroupInSupabase
 } from "@/lib/supabase/groups";
 import { ACTIVE_GROUP_STORAGE_KEY, MAX_GROUPS_PER_USER } from "@/lib/groups/constants";
 
@@ -23,6 +24,7 @@ type GroupContextValue = {
   canCreateGroup: boolean;
   selectGroup: (groupId: string) => Promise<void>;
   createGroup: (name: string, description?: string) => Promise<void>;
+  updateGroup: (name: string, description?: string) => Promise<void>;
   removeMember: (memberUserId: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -182,6 +184,20 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     [activeGroupId, userId, loadGroups]
   );
 
+  const updateGroup = useCallback(
+    async (name: string, description?: string) => {
+      const supabase = createClient();
+
+      if (!supabase || !activeGroupId) {
+        throw new Error("No active group to edit.");
+      }
+
+      await updateGroupInSupabase(supabase, activeGroupId, name, description);
+      await loadGroups();
+    },
+    [activeGroupId, loadGroups]
+  );
+
   const value = useMemo<GroupContextValue>(() => {
     const activeGroup = groups.find((group) => group.id === activeGroupId) ?? null;
 
@@ -195,10 +211,11 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       canCreateGroup: groups.length < MAX_GROUPS_PER_USER,
       selectGroup,
       createGroup,
+      updateGroup,
       removeMember,
       refresh: loadGroups
     };
-  }, [groups, activeGroupId, members, userId, status, selectGroup, createGroup, removeMember, loadGroups]);
+  }, [groups, activeGroupId, members, userId, status, selectGroup, createGroup, updateGroup, removeMember, loadGroups]);
 
   return <GroupContext.Provider value={value}>{children}</GroupContext.Provider>;
 }

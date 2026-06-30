@@ -178,6 +178,29 @@ export async function removeMember(supabase: SupabaseClient, groupId: string, us
   }
 }
 
+/** Update a group's name and description. Any member may edit. */
+export async function updateGroup(
+  supabase: SupabaseClient,
+  groupId: string,
+  name: string,
+  description?: string
+): Promise<void> {
+  const trimmed = name.trim();
+
+  if (!trimmed) {
+    throw new Error("Give the group a name.");
+  }
+
+  const { error } = await supabase
+    .from("groups")
+    .update({ name: trimmed, description: description?.trim() || null })
+    .eq("id", groupId);
+
+  if (error) {
+    throw new Error(error.message || "Could not update the group.");
+  }
+}
+
 /** True if the user is a member of at least one group. */
 export async function getMembershipCount(supabase: SupabaseClient, userId: string): Promise<number> {
   const { count, error } = await supabase

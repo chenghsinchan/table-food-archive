@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Plus, UserMinus, UserPlus, Users } from "lucide-react";
+import { Check, Copy, Pencil, Plus, UserMinus, UserPlus, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { useGroups } from "@/lib/groups/GroupProvider";
 import { createClient } from "@/lib/supabase/client";
@@ -20,8 +20,15 @@ export function GroupPanel() {
     canCreateGroup,
     selectGroup,
     createGroup,
+    updateGroup,
     removeMember
   } = useGroups();
+
+  const [editingGroup, setEditingGroup] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
 
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
@@ -109,6 +116,35 @@ export function GroupPanel() {
     }
   }
 
+  function startEditGroup() {
+    setEditName(activeGroup?.name ?? "");
+    setEditDescription(activeGroup?.description ?? "");
+    setEditError("");
+    setEditingGroup(true);
+  }
+
+  async function handleUpdateGroup(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEditError("");
+
+    const trimmed = editName.trim();
+    if (!trimmed) {
+      setEditError("Give the group a name.");
+      return;
+    }
+
+    setEditBusy(true);
+
+    try {
+      await updateGroup(trimmed, editDescription);
+      setEditingGroup(false);
+    } catch (caught) {
+      setEditError(caught instanceof Error ? caught.message : "Could not update the group.");
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
   async function handleRemove(memberUserId: string) {
     if (confirmRemoveId !== memberUserId) {
       setConfirmRemoveId(memberUserId);
@@ -134,11 +170,60 @@ export function GroupPanel() {
 
   return (
     <section className="liquid-island space-y-6 rounded-[28px] p-6">
-      <header className="space-y-1">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Current group</p>
-        <h2 className="font-serif text-3xl italic leading-tight text-ink">{activeGroup?.name ?? "No group yet"}</h2>
-        {activeGroup?.description ? <p className="text-sm leading-6 text-muted">{activeGroup.description}</p> : null}
-      </header>
+      {editingGroup && activeGroup ? (
+        <form onSubmit={handleUpdateGroup} className="space-y-3">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Edit group</p>
+          <input
+            value={editName}
+            onChange={(event) => setEditName(event.target.value)}
+            placeholder="Group name"
+            className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
+          />
+          <input
+            value={editDescription}
+            onChange={(event) => setEditDescription(event.target.value)}
+            placeholder="Intro / description (optional)"
+            className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={editBusy}
+              className="tap-scale flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+            >
+              <Check aria-hidden="true" size={17} />
+              {editBusy ? "Saving…" : "Save group"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingGroup(false)}
+              className="tap-scale min-h-12 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
+            >
+              Cancel
+            </button>
+          </div>
+          {editError ? <p className="text-sm leading-6 text-accent">{editError}</p> : null}
+        </form>
+      ) : (
+        <header className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Current group</p>
+            <h2 className="font-serif text-3xl italic leading-tight text-ink">{activeGroup?.name ?? "No group yet"}</h2>
+            {activeGroup?.description ? <p className="text-sm leading-6 text-muted">{activeGroup.description}</p> : null}
+          </div>
+          {activeGroup ? (
+            <button
+              type="button"
+              onClick={startEditGroup}
+              className="tap-scale inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface-warm px-3 py-2 text-xs font-semibold text-ink"
+              aria-label="Edit group"
+            >
+              <Pencil aria-hidden="true" size={14} />
+              Edit
+            </button>
+          ) : null}
+        </header>
+      )}
 
       {members.length ? (
         <div className="space-y-3">
