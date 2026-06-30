@@ -33,10 +33,7 @@ body::-webkit-scrollbar {
 body {
   min-height: 100%;
   margin: 0;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(248, 246, 242, 0.9) 24rem),
-    linear-gradient(115deg, rgba(17, 17, 17, 0.025), rgba(120, 113, 108, 0.035) 42%, transparent 72%),
-    rgb(var(--background));
+  background: rgb(var(--background));
   color: rgb(var(--ink));
   font-family: Geist, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;

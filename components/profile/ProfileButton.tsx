@@ -10,6 +10,10 @@ type ProfilePreview = {
   avatarUrl?: string;
 };
 
+// Module-level cache: survives client-side navigation so the avatar shows
+// instantly and identically on every page (no reload flash after first load).
+let cachedProfile: ProfilePreview | null = null;
+
 function initialsFor(name: string) {
   return (
     name
@@ -23,17 +27,21 @@ function initialsFor(name: string) {
 }
 
 export function ProfileButton() {
-  const [profile, setProfile] = useState<ProfilePreview>({ name: "TABLE" });
+  // Seed from the in-memory cache so navigating between pages never flashes.
+  const [profile, setProfile] = useState<ProfilePreview>(() => cachedProfile ?? { name: "TABLE" });
 
   useEffect(() => {
     let active = true;
 
     async function loadProfile() {
-      const localProfile = window.localStorage.getItem("table-profile");
-      if (localProfile) {
-        const parsedProfile = sanitizeProfile(JSON.parse(localProfile) as ProfilePreview);
-        window.localStorage.setItem("table-profile", JSON.stringify(parsedProfile));
-        setProfile(parsedProfile);
+      // First load of the session: seed from localStorage before the network call.
+      if (!cachedProfile) {
+        const localProfile = window.localStorage.getItem("table-profile");
+        if (localProfile) {
+          const parsedProfile = sanitizeProfile(JSON.parse(localProfile) as ProfilePreview);
+          cachedProfile = parsedProfile;
+          if (active) setProfile(parsedProfile);
+        }
       }
 
       const supabase = createClient();
@@ -59,10 +67,14 @@ export function ProfileButton() {
         return;
       }
 
-      setProfile({
+      const nextProfile: ProfilePreview = {
         name: data?.display_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "TABLE",
         avatarUrl: data?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture
-      });
+      };
+
+      cachedProfile = nextProfile;
+      window.localStorage.setItem("table-profile", JSON.stringify(sanitizeProfile(nextProfile)));
+      setProfile(nextProfile);
     }
 
     loadProfile();

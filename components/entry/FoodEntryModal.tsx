@@ -6,6 +6,7 @@ import type { FoodEntry, FoodPhoto } from "@/types/food";
 import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
 import { TagPill } from "@/components/ui/TagPill";
 import { createClient } from "@/lib/supabase/client";
+import { useGroups } from "@/lib/groups/GroupProvider";
 import { deleteEntryFromSupabase, saveEntryToSupabase } from "@/lib/supabase/save-entry";
 import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
 import { useSavedTags } from "@/lib/hooks/useSavedTags";
@@ -33,6 +34,8 @@ type DraftEntry = {
 };
 
 export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwipeUp }: FoodEntryModalProps) {
+  const { activeGroup } = useGroups();
+  const kitchenNotesLabel = activeGroup?.name ? `${activeGroup.name}'s kitchen notes` : "Kitchen notes";
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const sheetRef = useRef<HTMLElement | null>(null);
   const gestureRef = useRef<{ startY: number; startX: number; active: boolean; endY: number | null }>({
@@ -527,7 +530,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
           <section className="pattern-dots rounded-lg border border-border bg-white p-5">
             <h3 className="mb-4 flex items-center gap-2 font-mono text-sm uppercase text-accent">
               <BookOpen aria-hidden="true" size={20} strokeWidth={1.9} />
-              Cheng &amp; Saulė&apos;s kitchen notes
+              {kitchenNotesLabel}
             </h3>
             {isEditing ? (
               <textarea
