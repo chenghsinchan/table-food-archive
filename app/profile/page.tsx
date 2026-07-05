@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { NotificationSettings } from "@/components/notifications/NotificationSettings";
 import { GroupPanel } from "@/components/profile/GroupPanel";
 import { ProfileEditor } from "@/components/profile/ProfileEditor";
 
@@ -17,6 +18,7 @@ export default function ProfilePage() {
       </header>
       <ProfileEditor />
       <GroupPanel />
+      <NotificationSettings />
     </div>
   );
 }

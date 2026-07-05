@@ -119,6 +119,12 @@ export function EntryForm({ entries }: EntryFormProps) {
       await createEntryInSupabase(supabase, entry, { createdById: user?.id ?? null });
       upsertEntry({ ...entry, createdById: user?.id ?? undefined });
       setStatus("saved");
+
+      // Notify the other group members that a new card was added. Fire-and-forget
+      // with keepalive so it survives the navigation below; only runs on a
+      // successful create (never on edit, love, tag, or delete).
+      notifyGroupOfNewEntry(entry.id);
+
       window.location.replace(returnTo === "/" ? `/entry/${entry.id}` : returnTo);
     } catch (caught) {
       await cleanupUploadedPhotos(uploadedPhotos);
@@ -265,6 +271,19 @@ export function EntryForm({ entries }: EntryFormProps) {
       {error ? <p className="text-center text-sm leading-6 text-accent">{error}</p> : null}
     </form>
   );
+}
+
+function notifyGroupOfNewEntry(entryId: string) {
+  try {
+    void fetch("/api/notifications/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entryId }),
+      keepalive: true
+    }).catch(() => undefined);
+  } catch {
+    // Notifications are best-effort; never block or fail the save on them.
+  }
 }
 
 function safeReturnPath(value: string | null) {
