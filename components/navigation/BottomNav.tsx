@@ -45,7 +45,7 @@ export function BottomNav() {
             )}
             aria-current={active ? "page" : undefined}
           >
-            <Icon aria-hidden="true" size={20} strokeWidth={1.7} fill={item.href === "/love" && active ? "currentColor" : "none"} />
+            <Icon aria-hidden="true" size={20} strokeWidth={1.7} fill={active ? "currentColor" : "none"} />
           </Link>
         );
       })}
