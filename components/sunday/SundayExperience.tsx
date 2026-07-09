@@ -105,6 +105,7 @@ type DragState = {
 
 type CopyBuffer = {
   label: string;
+  sourceKey: string;
   items: MealPlanItem[];
 };
 
@@ -125,12 +126,19 @@ export function SundayExperience() {
   const [drag, setDrag] = useState<DragState | null>(null);
   const [showShoppingList, setShowShoppingList] = useState(false);
   const [copyBuffer, setCopyBuffer] = useState<CopyBuffer | null>(null);
+  const [weekMenu, setWeekMenu] = useState<string | null>(null);
 
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [monthItems, setMonthItems] = useState<MealPlanItem[]>([]);
   const [monthLoading, setMonthLoading] = useState(false);
 
   const busyRef = useRef(false);
+  const longPressRef = useRef<{ timer: number | null; x: number; y: number; fired: boolean }>({
+    timer: null,
+    x: 0,
+    y: 0,
+    fired: false
+  });
 
   const entriesById = useMemo(() => new Map(entries.map((entry) => [entry.id, entry])), [entries]);
   const editingItem = items.find((item) => item.id === editingItemId) ?? null;
@@ -284,14 +292,64 @@ export function SundayExperience() {
   }
 
   // ---- copy / paste a whole week ----
-  function copyWeek(sourceKey: string, sourceItems: MealPlanItem[]) {
+  function copyWeek(sourceKey: string, sourceItems: MealPlanItem[], hint?: string) {
     if (!sourceItems.length) {
-      setNotice("That week has nothing to copy yet.");
       return;
     }
 
-    setCopyBuffer({ label: formatWeekRange(fromDateKey(sourceKey)), items: sourceItems });
-    setNotice(`Copied ${formatWeekRange(fromDateKey(sourceKey))}. Choose a week and tap paste.`);
+    const label = formatWeekRange(fromDateKey(sourceKey));
+    setCopyBuffer({ label, sourceKey, items: sourceItems });
+    setNotice(`Copied ${label}. ${hint ?? "Open another week and tap Paste here."}`);
+  }
+
+  // ---- long press on a month-view week row opens the copy/paste menu ----
+  function startWeekPress(event: React.PointerEvent<HTMLDivElement>, weekKey: string, hasItems: boolean) {
+    const state = longPressRef.current;
+    state.x = event.clientX;
+    state.y = event.clientY;
+    state.fired = false;
+
+    if (state.timer) {
+      window.clearTimeout(state.timer);
+    }
+
+    const canPaste = Boolean(copyBuffer && copyBuffer.sourceKey !== weekKey);
+
+    if (!hasItems && !canPaste) {
+      return;
+    }
+
+    state.timer = window.setTimeout(() => {
+      state.fired = true;
+      state.timer = null;
+      setWeekMenu(weekKey);
+    }, 450);
+  }
+
+  function moveWeekPress(event: React.PointerEvent<HTMLDivElement>) {
+    const state = longPressRef.current;
+
+    if (state.timer && (Math.abs(event.clientX - state.x) > 12 || Math.abs(event.clientY - state.y) > 12)) {
+      window.clearTimeout(state.timer);
+      state.timer = null;
+    }
+  }
+
+  function endWeekPress() {
+    const state = longPressRef.current;
+
+    if (state.timer) {
+      window.clearTimeout(state.timer);
+      state.timer = null;
+    }
+  }
+
+  function suppressClickAfterPress(event: React.MouseEvent<HTMLDivElement>) {
+    if (longPressRef.current.fired) {
+      event.preventDefault();
+      event.stopPropagation();
+      longPressRef.current.fired = false;
+    }
   }
 
   async function pasteWeek(targetKey: string) {
@@ -437,14 +495,7 @@ export function SundayExperience() {
       </header>
 
       <div className="flex items-center justify-between gap-3 pb-4">
-        <div className="min-w-0">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted">Sunday</p>
-          <h2 className="truncate font-serif text-3xl italic leading-tight text-ink">
-            {view === "week"
-              ? formatWeekRange(weekStart)
-              : monthDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-          </h2>
-        </div>
+        <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted">Sunday</p>
         <div className="flex shrink-0 items-center rounded-full bg-surface-warm p-1">
           <button
             type="button"
@@ -491,9 +542,13 @@ export function SundayExperience() {
             setWeekStart(startOfWeek(new Date()));
             setMonthDate(new Date());
           }}
-          className="tap-scale rounded-full bg-surface-warm px-4 py-2 text-xs font-semibold text-ink"
+          className="tap-scale min-w-0 truncate rounded-full bg-surface-warm px-5 py-2 font-serif text-xl italic text-ink"
+          title="Back to today"
+          aria-label="Back to today"
         >
-          Today
+          {view === "week"
+            ? formatWeekRange(weekStart)
+            : monthDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
         </button>
         <button
           type="button"
