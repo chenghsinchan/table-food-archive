@@ -575,19 +575,18 @@ export function SundayExperience() {
       ) : view === "month" ? (
         /* ============================ MONTH VIEW ============================ */
         <div className="space-y-2">
-          <div className="grid grid-cols-[repeat(7,1fr)_2.4rem] gap-1 px-1">
+          <div className="grid grid-cols-7 gap-1 px-1">
             {DAY_LETTERS.map((letter, index) => (
               <p key={index} className="text-center font-mono text-[10px] uppercase text-muted">
                 {letter}
               </p>
             ))}
-            <span />
           </div>
 
           {monthLoading ? (
             <div className="space-y-1">
               {monthWeekKeys.map((key) => (
-                <div key={key} className="h-14 animate-pulse rounded-[14px] border border-border bg-white/60" />
+                <div key={key} className="h-20 animate-pulse rounded-[14px] border border-border bg-white/60" />
               ))}
             </div>
           ) : (
@@ -599,16 +598,24 @@ export function SundayExperience() {
               return (
                 <div
                   key={key}
+                  onPointerDown={(event) => startWeekPress(event, key, weekItems.length > 0)}
+                  onPointerMove={moveWeekPress}
+                  onPointerUp={endWeekPress}
+                  onPointerCancel={endWeekPress}
+                  onClickCapture={suppressClickAfterPress}
                   className={cn(
-                    "grid grid-cols-[repeat(7,1fr)_2.4rem] items-center gap-1 rounded-[14px] border bg-white/72 p-1",
-                    isViewedWeek ? "border-ink" : "border-border"
+                    "grid select-none grid-cols-7 items-stretch gap-1 rounded-[14px] border bg-white/72 p-1",
+                    isViewedWeek ? "border-ink" : "border-border",
+                    copyBuffer?.sourceKey === key && "bg-surface-warm"
                   )}
                 >
                   {DAY_LABELS.map((_, dayIndex) => {
                     const date = addDays(weekDate, dayIndex);
                     const inMonth = date.getMonth() === monthDate.getMonth();
                     const isToday = toDateKey(date) === todayKey;
-                    const count = weekItems.filter((item) => item.dayOfWeek === dayIndex).length;
+                    const dayItems = weekItems
+                      .filter((item) => item.dayOfWeek === dayIndex)
+                      .sort((a, b) => SLOT_ORDER[a.mealSlot] - SLOT_ORDER[b.mealSlot] || a.position - b.position);
 
                     return (
                       <button
@@ -619,52 +626,38 @@ export function SundayExperience() {
                           setView("week");
                         }}
                         className={cn(
-                          "tap-scale flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-[10px] text-xs",
+                          "tap-scale flex min-h-16 flex-col items-center gap-0.5 overflow-hidden rounded-[10px] px-0.5 py-1",
                           inMonth ? "text-ink" : "text-muted/50",
                           isToday && "bg-ink text-white"
                         )}
                       >
-                        <span className="font-mono">{date.getDate()}</span>
-                        {count ? (
-                          <span className={cn("text-[10px] font-semibold", isToday ? "text-white" : "text-muted")}>
-                            {count}
+                        <span className="font-mono text-[11px]">{date.getDate()}</span>
+                        {dayItems.slice(0, 2).map((item) => (
+                          <span
+                            key={item.id}
+                            className={cn(
+                              "block w-full truncate text-[9px] leading-[11px]",
+                              isToday ? "text-white/85" : "text-muted"
+                            )}
+                          >
+                            {entriesById.get(item.foodEntryId)?.title}
                           </span>
-                        ) : (
-                          <span className="text-[10px] text-transparent">0</span>
-                        )}
+                        ))}
+                        {dayItems.length > 2 ? (
+                          <span className={cn("text-[9px] leading-[11px]", isToday ? "text-white/85" : "text-muted")}>
+                            +{dayItems.length - 2}
+                          </span>
+                        ) : null}
                       </button>
                     );
                   })}
-
-                  <div className="flex flex-col items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => copyWeek(key, weekItems)}
-                      className="tap-scale grid size-8 place-items-center rounded-full bg-surface-warm text-ink"
-                      aria-label={`Copy week of ${formatWeekRange(weekDate)}`}
-                      title="Copy week"
-                    >
-                      <Copy aria-hidden="true" size={13} />
-                    </button>
-                    {copyBuffer ? (
-                      <button
-                        type="button"
-                        onClick={() => pasteWeek(key)}
-                        className="tap-scale grid size-8 place-items-center rounded-full bg-ink text-white"
-                        aria-label={`Paste into week of ${formatWeekRange(weekDate)}`}
-                        title="Paste week"
-                      >
-                        <ClipboardPaste aria-hidden="true" size={13} />
-                      </button>
-                    ) : null}
-                  </div>
                 </div>
               );
             })
           )}
 
           <p className="pt-1 text-center text-xs leading-5 text-muted">
-            Tap a day to open that week. Numbers show planned meals.
+            Tap a day to open that week. Long press a week to copy or paste a plan.
           </p>
         </div>
       ) : showSkeleton ? (
@@ -788,7 +781,7 @@ export function SundayExperience() {
               <Copy aria-hidden="true" size={14} />
               Copy this week
             </button>
-            {copyBuffer ? (
+            {copyBuffer && copyBuffer.sourceKey !== weekKey ? (
               <button
                 type="button"
                 onClick={() => pasteWeek(weekKey)}
@@ -844,6 +837,61 @@ export function SundayExperience() {
             </div>
           ) : null}
         </section>
+      ) : null}
+
+      {/* ---- long-press week menu (month view) ---- */}
+      {weekMenu ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-end bg-ink/55"
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setWeekMenu(null);
+            }
+          }}
+        >
+          <div className="w-full rounded-t-[28px] bg-[#fffefa] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+            <p className="pb-4 font-serif text-2xl italic text-ink">{formatWeekRange(fromDateKey(weekMenu))}</p>
+            <div className="space-y-2">
+              {monthItems.some((item) => item.weekStart === weekMenu) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    copyWeek(
+                      weekMenu,
+                      monthItems.filter((item) => item.weekStart === weekMenu),
+                      "Long press another week to paste."
+                    );
+                    setWeekMenu(null);
+                  }}
+                  className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
+                >
+                  <Copy aria-hidden="true" size={15} />
+                  Copy week
+                </button>
+              ) : null}
+              {copyBuffer && copyBuffer.sourceKey !== weekMenu ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    pasteWeek(weekMenu);
+                    setWeekMenu(null);
+                  }}
+                  className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white"
+                >
+                  <ClipboardPaste aria-hidden="true" size={15} />
+                  Paste plan ({copyBuffer.label})
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setWeekMenu(null)}
+                className="tap-scale flex min-h-12 w-full items-center justify-center rounded-full px-5 text-sm font-semibold text-muted"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {/* ---- drag ghost ---- */}
