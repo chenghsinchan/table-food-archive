@@ -7,7 +7,7 @@ type SaveOptions = {
 };
 
 export async function createEntryInSupabase(supabase: SupabaseClient, entry: FoodEntry, options: SaveOptions = {}) {
-  const { error: entryError } = await supabase.from("food_entries").insert({
+  const payload = {
     id: entry.id,
     title: entry.title,
     type: entry.type,
@@ -21,10 +21,20 @@ export async function createEntryInSupabase(supabase: SupabaseClient, entry: Foo
     entry_date: entry.entryDate,
     want_to_recreate: entry.wantToRecreate ?? false,
     is_loved: entry.isLoved ?? false,
+    ingredients: entry.ingredients ?? null,
     group_id: entry.groupId ?? null,
     created_by: options.createdById ?? entry.createdById ?? null,
     is_archived: false
-  });
+  };
+
+  let { error: entryError } = await supabase.from("food_entries").insert(payload);
+
+  // Databases that haven't run sunday-meal-plan.sql yet lack the ingredients
+  // column; retry without it so saving cards keeps working.
+  if (entryError && isMissingColumnError(entryError, "ingredients")) {
+    const { ingredients: _ingredients, ...withoutIngredients } = payload;
+    ({ error: entryError } = await supabase.from("food_entries").insert(withoutIngredients));
+  }
 
   if (entryError) {
     throw entryError;
@@ -40,28 +50,31 @@ export async function createEntryInSupabase(supabase: SupabaseClient, entry: Foo
 }
 
 export async function saveEntryToSupabase(supabase: SupabaseClient, entry: FoodEntry, options: SaveOptions = {}) {
-  const { error: entryError } = await supabase
-    .from("food_entries")
-    .upsert(
-      {
-        id: entry.id,
-        title: entry.title,
-        type: entry.type,
-        rating: entry.rating ?? null,
-        notes: entry.notes ?? null,
-        recipe: entry.recipe ?? null,
-        restaurant_name: entry.restaurantName ?? null,
-        city: entry.city ?? null,
-        country: entry.country ?? null,
-        entry_date: entry.entryDate,
-        want_to_recreate: entry.wantToRecreate ?? false,
-        is_loved: entry.isLoved ?? false,
-        group_id: entry.groupId ?? null,
-        created_by: options.createdById ?? entry.createdById ?? null,
-        is_archived: false
-      },
-      { onConflict: "id" }
-    );
+  const payload = {
+    id: entry.id,
+    title: entry.title,
+    type: entry.type,
+    rating: entry.rating ?? null,
+    notes: entry.notes ?? null,
+    recipe: entry.recipe ?? null,
+    restaurant_name: entry.restaurantName ?? null,
+    city: entry.city ?? null,
+    country: entry.country ?? null,
+    entry_date: entry.entryDate,
+    want_to_recreate: entry.wantToRecreate ?? false,
+    is_loved: entry.isLoved ?? false,
+    ingredients: entry.ingredients ?? null,
+    group_id: entry.groupId ?? null,
+    created_by: options.createdById ?? entry.createdById ?? null,
+    is_archived: false
+  };
+
+  let { error: entryError } = await supabase.from("food_entries").upsert(payload, { onConflict: "id" });
+
+  if (entryError && isMissingColumnError(entryError, "ingredients")) {
+    const { ingredients: _ingredients, ...withoutIngredients } = payload;
+    ({ error: entryError } = await supabase.from("food_entries").upsert(withoutIngredients, { onConflict: "id" }));
+  }
 
   if (entryError) {
     throw entryError;
@@ -204,6 +217,10 @@ async function addLoveTagToEntry(supabase: SupabaseClient, entryId: string, tagI
 
 function isMissingLovedColumnError(error: { code?: string; message?: string }) {
   return error.code === "42703" || Boolean(error.message?.includes("is_loved"));
+}
+
+function isMissingColumnError(error: { code?: string; message?: string }, columnName: string) {
+  return error.code === "42703" || Boolean(error.message?.includes(columnName));
 }
 
 function isDuplicateError(error: { code?: string }) {

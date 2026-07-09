@@ -27,6 +27,7 @@ type DraftEntry = {
   title: string;
   notes: string;
   recipe: string;
+  ingredients: string;
   tags: string[];
   photos: FoodPhoto[];
   files: File[];
@@ -50,6 +51,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
     title: entry.title,
     notes: entry.notes ?? "",
     recipe: entry.recipe ?? "",
+    ingredients: entry.ingredients ?? "",
     tags: entry.tags,
     photos: entry.photos,
     files: [],
@@ -194,6 +196,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
       title: entry.title,
       notes: entry.notes ?? "",
       recipe: entry.recipe ?? "",
+      ingredients: entry.ingredients ?? "",
       tags: entry.tags,
       photos: entry.photos,
       files: [],
@@ -254,6 +257,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
         title: draft.title.trim() || entry.title,
         notes: draft.notes.trim() || undefined,
         recipe: draft.recipe.trim() || undefined,
+        ingredients: draft.ingredients.trim() || undefined,
         tags: uniqueTagNames(draft.tags),
         photos: draft.photos
       };
@@ -470,6 +474,33 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
               </div>
             )}
           </section>
+
+          {isEditing || entry.ingredients ? (
+            <section className="border-t border-border pt-6">
+              <h3 className="mb-4 font-mono text-sm uppercase text-muted">Ingredients</h3>
+              {isEditing ? (
+                <textarea
+                  value={draft.ingredients}
+                  onChange={(event) => setDraft((current) => ({ ...current, ingredients: event.target.value }))}
+                  rows={5}
+                  className="w-full rounded-lg border border-border bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-accent"
+                  placeholder={"One ingredient per line, e.g.\n300g squid\n2 lemons\nolive oil"}
+                />
+              ) : (
+                <ul className="space-y-1">
+                  {(entry.ingredients ?? "")
+                    .split(/\n|,/)
+                    .map((line) => line.trim())
+                    .filter(Boolean)
+                    .map((line, index) => (
+                      <li key={index} className="text-base leading-7 text-ink/80">
+                        {line}
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </section>
+          ) : null}
 
           {isEditing ? (
             <section className="border-t border-border pt-6">

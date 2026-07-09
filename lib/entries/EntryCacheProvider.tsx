@@ -105,7 +105,7 @@ export function EntryCacheProvider({ children }: { children: React.ReactNode }) 
 
   // Soft refresh when returning to a main tab and the cache is stale.
   useEffect(() => {
-    if (!["/", "/tonight", "/love"].includes(pathname)) {
+    if (!["/", "/sunday", "/tonight", "/love"].includes(pathname)) {
       return;
     }
 

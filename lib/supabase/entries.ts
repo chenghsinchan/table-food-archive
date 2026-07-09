@@ -29,6 +29,7 @@ type EntryRow = {
   entry_date: string;
   want_to_recreate?: boolean | null;
   is_loved?: boolean | null;
+  ingredients?: string | null;
   group_id?: string | null;
   created_by: string | null;
   updated_at?: string | null;
@@ -79,6 +80,7 @@ function transformEntry(row: EntryRow, profiles: Map<string, ProfileRow> = new M
     entryDate: row.entry_date,
     wantToRecreate: row.want_to_recreate ?? false,
     isLoved: (row.is_loved ?? false) || (row.food_entry_tags ?? []).some((relation) => relation.tags?.name === "Love"),
+    ingredients: row.ingredients ?? undefined,
     groupId: row.group_id ?? undefined,
     createdById: row.created_by ?? undefined,
     addedBy: row.created_by

@@ -28,11 +28,23 @@ export type FoodEntry = {
   entryDate: string;
   wantToRecreate?: boolean;
   isLoved?: boolean;
+  ingredients?: string;
   createdById?: string;
   groupId?: string;
   addedBy?: EntryContributor;
   tags: string[];
   photos: FoodPhoto[];
+};
+
+export type MealPlanItem = {
+  id: string;
+  groupId: string;
+  foodEntryId: string;
+  weekStart: string;
+  dayOfWeek: number;
+  portions: number;
+  isLeftover: boolean;
+  position: number;
 };
 
 export type GroupRole = "owner" | "member";

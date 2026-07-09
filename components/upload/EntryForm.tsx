@@ -203,7 +203,17 @@ export function EntryForm({ entries }: EntryFormProps) {
             <textarea
               name="recipe"
               rows={5}
-              placeholder="Loose method, ingredients, or a link."
+              placeholder="Loose method or a link."
+              className="rounded-lg border border-border bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-accent"
+            />
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-medium text-muted">Ingredients</span>
+            <textarea
+              name="ingredients"
+              rows={4}
+              placeholder={"One per line — feeds the SUNDAY shopping list.\n300g squid\n2 lemons"}
               className="rounded-lg border border-border bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-accent"
             />
           </label>
@@ -379,6 +389,7 @@ function buildLocalEntry({
     type,
     notes: String(form.get("notes") || "").trim() || undefined,
     recipe: String(form.get("recipe") || "").trim() || undefined,
+    ingredients: String(form.get("ingredients") || "").trim() || undefined,
     restaurantName: String(form.get("restaurant") || "").trim() || undefined,
     city: String(form.get("city") || "").trim() || undefined,
     country: String(form.get("country") || "").trim() || undefined,

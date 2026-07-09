@@ -17,15 +17,28 @@ TABLE is a private, image-first PWA food archive for saving home cooking, recipe
 
 ## Main App Areas
 
-TABLE has three bottom tabs:
+TABLE currently shows two bottom tabs (as of 2026-07-09):
 
 - HOME (`/`): the visual food archive
-- TONIGHT (`/tonight`): a swipeable deck of saved entries for dinner inspiration
-- LOVE (`/love`): the entries you have saved as favourites
+- SUNDAY (`/sunday`): the shared weekly meal planner (week starts Monday)
 
-Other routes exist for supporting flows such as adding/editing entries, login, profile setup, auth callback, and individual entry detail pages.
+Hidden but still working (removed from the nav, nothing deleted):
+
+- TONIGHT (`/tonight`): swipeable deck for dinner inspiration
+- LOVE (`/love`): saved favourites (all LOVE data is kept in the database)
+
+Other routes exist for supporting flows such as adding/editing entries, login, profile setup, auth callback, invites, and individual entry detail pages.
 
 Note: the LOVE tab is served by the component named `RecipesExperience` (an earlier "Recipes" tab was renamed to "Love"). The route and label are LOVE; the component name is historical.
+
+## How SUNDAY (weekly meal plan) Works
+
+- `components/sunday/SundayExperience.tsx` shows a Monday-to-Sunday week; arrows move between weeks, "Today" jumps back.
+- Tap a day's + to pick a dish from the archive (tap to add), or drag a planned dish between days using its grip handle.
+- Tap a planned dish to set portions (1–12), mark it as a leftover, or remove it.
+- The shopping list at the bottom totals portions per dish and lists each dish's ingredients; leftover meals are skipped.
+- Ingredients live on the food card (`food_entries.ingredients`, one per line) — editable in the card's edit mode and on the add form. An AI photo→ingredients step can fill this field later.
+- Plans are stored in `meal_plan_items` (see `supabase/sunday-meal-plan.sql`), scoped to the active group with row-level security.
 
 ## How LOVE Works
 

@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Circle, Heart, Star } from "lucide-react";
+import { Circle, Sun } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
+// TONIGHT and LOVE are hidden from the nav for now (pages still exist).
 const items = [
   { href: "/", label: "Home", icon: Circle },
-  { href: "/tonight", label: "Tonight", icon: Star },
-  { href: "/love", label: "Love", icon: Heart }
+  { href: "/sunday", label: "Sunday", icon: Sun }
 ];
 
 export function BottomNav() {
