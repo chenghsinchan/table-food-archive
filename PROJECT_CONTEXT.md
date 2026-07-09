@@ -34,11 +34,12 @@ Note: the LOVE tab is served by the component named `RecipesExperience` (an earl
 ## How SUNDAY (weekly meal plan) Works
 
 - `components/sunday/SundayExperience.tsx` shows a Monday-to-Sunday week; arrows move between weeks, "Today" jumps back.
-- Tap a day's + to pick a dish from the archive (tap to add), or drag a planned dish between days using its grip handle.
-- Tap a planned dish to set portions (1–12), mark it as a leftover, or remove it.
-- The shopping list at the bottom totals portions per dish and lists each dish's ingredients; leftover meals are skipped.
+- Every day has three meal slots: Breakfast, Lunch, Dinner. Tap a slot's + to pick a dish; cards tagged "breakfast"/"lunch"/"dinner" are suggested first for that slot.
+- Drag a planned dish between days AND slots using its grip handle; tap it to change meal slot, set portions (1–12), mark it as a leftover, or remove it.
+- The shopping list merges ingredient lines across all planned meals into one plain list (e.g. "eggs ×3"), alphabetical; leftover meals are skipped and dishes missing ingredients are counted in a note.
+- Month view (Week/Month toggle): calendar grid with planned-meal counts per day; tap a day to open its week. Each week row has Copy and (when something is copied) Paste buttons — copy a whole week's plan into another week. Week view also has "Copy this week" / "Paste here".
 - Ingredients live on the food card (`food_entries.ingredients`, one per line) — editable in the card's edit mode and on the add form. An AI photo→ingredients step can fill this field later.
-- Plans are stored in `meal_plan_items` (see `supabase/sunday-meal-plan.sql`), scoped to the active group with row-level security.
+- Plans are stored in `meal_plan_items` (see `supabase/sunday-meal-plan.sql`), scoped to the active group with row-level security. Each row has `meal_slot` ('breakfast' | 'lunch' | 'dinner').
 
 ## How LOVE Works
 

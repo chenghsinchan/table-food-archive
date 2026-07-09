@@ -1,15 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, GripVertical, Minus, Plus, ShoppingBasket, Trash2, X } from "lucide-react";
-import type { FoodEntry, MealPlanItem } from "@/types/food";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ClipboardPaste,
+  Copy,
+  GripVertical,
+  Minus,
+  Plus,
+  ShoppingBasket,
+  Trash2,
+  X
+} from "lucide-react";
+import type { FoodEntry, MealPlanItem, MealSlot } from "@/types/food";
 import { ProfileButton } from "@/components/profile/ProfileButton";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { useGroups } from "@/lib/groups/GroupProvider";
 import { createClient } from "@/lib/supabase/client";
 import {
   addMealPlanItem,
+  copyMealPlanItems,
   getMealPlanItems,
+  getMealPlanItemsForWeeks,
   removeMealPlanItem,
   updateMealPlanItem
 } from "@/lib/supabase/meal-plan";
@@ -17,6 +30,15 @@ import { cn } from "@/lib/utils/cn";
 import { thumbnailSrc } from "@/lib/utils/photos";
 
 const DAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
+
+const MEAL_SLOTS: Array<{ key: MealSlot; label: string }> = [
+  { key: "breakfast", label: "Breakfast" },
+  { key: "lunch", label: "Lunch" },
+  { key: "dinner", label: "Dinner" }
+];
+
+const SLOT_ORDER: Record<MealSlot, number> = { breakfast: 0, lunch: 1, dinner: 2 };
 
 function startOfWeek(date: Date) {
   const local = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -37,6 +59,11 @@ function toDateKey(date: Date) {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
+function fromDateKey(key: string) {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function formatWeekRange(weekStart: Date) {
   const weekEnd = addDays(weekStart, 6);
   const startMonth = weekStart.toLocaleDateString("en-GB", { month: "short" });
@@ -49,15 +76,23 @@ function formatWeekRange(weekStart: Date) {
   return `${weekStart.getDate()} ${startMonth} – ${weekEnd.getDate()} ${endMonth}`;
 }
 
-function ingredientLines(entry: FoodEntry | undefined) {
-  if (!entry?.ingredients) {
-    return [];
+/** Mondays of every week that overlaps the given month. */
+function weeksOfMonth(monthDate: Date) {
+  const firstOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const lastOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+  const weeks: Date[] = [];
+  let cursor = startOfWeek(firstOfMonth);
+
+  while (cursor <= lastOfMonth) {
+    weeks.push(cursor);
+    cursor = addDays(cursor, 7);
   }
 
-  return entry.ingredients
-    .split(/\n|,/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  return weeks;
+}
+
+function entryMatchesSlot(entry: FoodEntry, slot: MealSlot) {
+  return entry.tags.some((tag) => tag.trim().toLowerCase() === slot);
 }
 
 type DragState = {
@@ -65,22 +100,36 @@ type DragState = {
   x: number;
   y: number;
   overDay: number | null;
+  overSlot: MealSlot | null;
+};
+
+type CopyBuffer = {
+  label: string;
+  items: MealPlanItem[];
 };
 
 export function SundayExperience() {
   const { entries, status: entriesStatus } = useFoodEntries();
   const { activeGroupId, status: groupStatus } = useGroups();
 
+  const [view, setView] = useState<"week" | "month">("week");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const weekKey = toDateKey(weekStart);
 
   const [items, setItems] = useState<MealPlanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [pickerDay, setPickerDay] = useState<number | null>(null);
+  const [notice, setNotice] = useState("");
+  const [picker, setPicker] = useState<{ day: number; slot: MealSlot } | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [showShoppingList, setShowShoppingList] = useState(false);
+  const [copyBuffer, setCopyBuffer] = useState<CopyBuffer | null>(null);
+
+  const [monthDate, setMonthDate] = useState(() => new Date());
+  const [monthItems, setMonthItems] = useState<MealPlanItem[]>([]);
+  const [monthLoading, setMonthLoading] = useState(false);
+
   const busyRef = useRef(false);
 
   const entriesById = useMemo(() => new Map(entries.map((entry) => [entry.id, entry])), [entries]);
@@ -113,7 +162,34 @@ export function SundayExperience() {
     loadItems();
   }, [loadItems]);
 
-  async function addDish(entry: FoodEntry, dayOfWeek: number) {
+  const monthWeekKeys = useMemo(() => weeksOfMonth(monthDate).map(toDateKey), [monthDate]);
+
+  const loadMonthItems = useCallback(async () => {
+    const supabase = createClient();
+
+    if (!supabase || !activeGroupId) {
+      setMonthItems([]);
+      return;
+    }
+
+    setMonthLoading(true);
+
+    try {
+      setMonthItems(await getMealPlanItemsForWeeks(supabase, activeGroupId, monthWeekKeys));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not load the month.");
+    } finally {
+      setMonthLoading(false);
+    }
+  }, [activeGroupId, monthWeekKeys]);
+
+  useEffect(() => {
+    if (view === "month") {
+      loadMonthItems();
+    }
+  }, [view, loadMonthItems]);
+
+  async function addDish(entry: FoodEntry, day: number, slot: MealSlot) {
     if (busyRef.current) return;
     busyRef.current = true;
     setError("");
@@ -129,7 +205,8 @@ export function SundayExperience() {
           groupId: activeGroupId,
           foodEntryId: entry.id,
           weekStart: weekKey,
-          dayOfWeek,
+          dayOfWeek: day,
+          mealSlot: slot,
           createdBy: user?.id ?? null
         });
         setItems((current) => [...current, item]);
@@ -141,7 +218,8 @@ export function SundayExperience() {
             groupId: activeGroupId ?? "local",
             foodEntryId: entry.id,
             weekStart: weekKey,
-            dayOfWeek,
+            dayOfWeek: day,
+            mealSlot: slot,
             portions: 2,
             isLeftover: false,
             position: current.length
@@ -149,7 +227,7 @@ export function SundayExperience() {
         ]);
       }
 
-      setPickerDay(null);
+      setPicker(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not add this dish.");
     } finally {
@@ -157,7 +235,10 @@ export function SundayExperience() {
     }
   }
 
-  async function changeItem(itemId: string, changes: { dayOfWeek?: number; portions?: number; isLeftover?: boolean }) {
+  async function changeItem(
+    itemId: string,
+    changes: { dayOfWeek?: number; mealSlot?: MealSlot; portions?: number; isLeftover?: boolean }
+  ) {
     setError("");
     setItems((current) =>
       current.map((item) =>
@@ -165,6 +246,7 @@ export function SundayExperience() {
           ? {
               ...item,
               dayOfWeek: changes.dayOfWeek ?? item.dayOfWeek,
+              mealSlot: changes.mealSlot ?? item.mealSlot,
               portions: changes.portions ?? item.portions,
               isLeftover: changes.isLeftover ?? item.isLeftover
             }
@@ -201,37 +283,105 @@ export function SundayExperience() {
     }
   }
 
-  // ---- drag a planned dish between days (start from the grip handle) ----
-  function dayFromPoint(x: number, y: number) {
-    const target = document.elementFromPoint(x, y)?.closest("[data-day]");
-    return target ? Number((target as HTMLElement).dataset.day) : null;
+  // ---- copy / paste a whole week ----
+  function copyWeek(sourceKey: string, sourceItems: MealPlanItem[]) {
+    if (!sourceItems.length) {
+      setNotice("That week has nothing to copy yet.");
+      return;
+    }
+
+    setCopyBuffer({ label: formatWeekRange(fromDateKey(sourceKey)), items: sourceItems });
+    setNotice(`Copied ${formatWeekRange(fromDateKey(sourceKey))}. Choose a week and tap paste.`);
+  }
+
+  async function pasteWeek(targetKey: string) {
+    if (!copyBuffer || busyRef.current) {
+      return;
+    }
+
+    busyRef.current = true;
+    setError("");
+
+    try {
+      const supabase = createClient();
+
+      if (supabase && activeGroupId) {
+        const {
+          data: { user }
+        } = await supabase.auth.getUser();
+        const inserted = await copyMealPlanItems(supabase, copyBuffer.items, targetKey, user?.id ?? null);
+
+        if (targetKey === weekKey) {
+          setItems((current) => [...current, ...inserted]);
+        }
+
+        if (view === "month") {
+          await loadMonthItems();
+        }
+      } else if (targetKey === weekKey) {
+        setItems((current) => [
+          ...current,
+          ...copyBuffer.items.map((item) => ({ ...item, id: crypto.randomUUID(), weekStart: targetKey }))
+        ]);
+      }
+
+      setNotice(`Pasted into ${formatWeekRange(fromDateKey(targetKey))}.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not paste the week.");
+    } finally {
+      busyRef.current = false;
+    }
+  }
+
+  // ---- drag a planned dish between days/slots (start from the grip handle) ----
+  function targetFromPoint(x: number, y: number) {
+    const slotElement = document.elementFromPoint(x, y)?.closest("[data-slot]") as HTMLElement | null;
+
+    if (!slotElement) {
+      return { day: null, slot: null };
+    }
+
+    return {
+      day: Number(slotElement.dataset.day),
+      slot: slotElement.dataset.slot as MealSlot
+    };
   }
 
   function handleDragStart(event: React.PointerEvent<HTMLButtonElement>, item: MealPlanItem) {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    setDrag({ item, x: event.clientX, y: event.clientY, overDay: item.dayOfWeek });
+    setDrag({ item, x: event.clientX, y: event.clientY, overDay: item.dayOfWeek, overSlot: item.mealSlot });
   }
 
   function handleDragMove(event: React.PointerEvent<HTMLButtonElement>) {
-    setDrag((current) =>
-      current ? { ...current, x: event.clientX, y: event.clientY, overDay: dayFromPoint(event.clientX, event.clientY) } : current
-    );
+    setDrag((current) => {
+      if (!current) return current;
+
+      const target = targetFromPoint(event.clientX, event.clientY);
+      return { ...current, x: event.clientX, y: event.clientY, overDay: target.day, overSlot: target.slot };
+    });
   }
 
   function handleDragEnd() {
     setDrag((current) => {
-      if (current && current.overDay !== null && current.overDay !== current.item.dayOfWeek) {
-        changeItem(current.item.id, { dayOfWeek: current.overDay });
+      if (
+        current &&
+        current.overDay !== null &&
+        current.overSlot !== null &&
+        (current.overDay !== current.item.dayOfWeek || current.overSlot !== current.item.mealSlot)
+      ) {
+        changeItem(current.item.id, { dayOfWeek: current.overDay, mealSlot: current.overSlot });
       }
 
       return null;
     });
   }
 
-  // ---- shopping list: total portions per dish, skipping leftovers ----
+  // ---- shopping list: merge ingredient lines across all planned meals ----
   const shoppingList = useMemo(() => {
-    const totals = new Map<string, { entry: FoodEntry; portions: number }>();
+    const merged = new Map<string, { label: string; count: number }>();
+    let mealsCounted = 0;
+    let mealsWithoutIngredients = 0;
 
     for (const item of items) {
       if (item.isLeftover) continue;
@@ -239,14 +389,43 @@ export function SundayExperience() {
       const entry = entriesById.get(item.foodEntryId);
       if (!entry) continue;
 
-      const existing = totals.get(entry.id);
-      totals.set(entry.id, { entry, portions: (existing?.portions ?? 0) + item.portions });
+      mealsCounted += 1;
+      const lines = (entry.ingredients ?? "")
+        .split(/\n|,/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (!lines.length) {
+        mealsWithoutIngredients += 1;
+        continue;
+      }
+
+      for (const line of lines) {
+        const key = line.toLowerCase();
+        const existing = merged.get(key);
+        merged.set(key, { label: existing?.label ?? line, count: (existing?.count ?? 0) + 1 });
+      }
     }
 
-    return Array.from(totals.values());
+    return {
+      lines: Array.from(merged.values()).sort((a, b) => a.label.localeCompare(b.label)),
+      mealsCounted,
+      mealsWithoutIngredients
+    };
   }, [items, entriesById]);
 
   const showSkeleton = (loading && !items.length) || (entriesStatus !== "error" && !entries.length && entriesStatus !== "ready");
+
+  const pickerEntries = useMemo(() => {
+    if (!picker) {
+      return { suggested: [] as FoodEntry[], rest: [] as FoodEntry[] };
+    }
+
+    const suggested = entries.filter((entry) => entryMatchesSlot(entry, picker.slot));
+    const suggestedIds = new Set(suggested.map((entry) => entry.id));
+
+    return { suggested, rest: entries.filter((entry) => !suggestedIds.has(entry.id)) };
+  }, [entries, picker]);
 
   return (
     <main className="relative mx-auto w-full max-w-[760px] px-4 pb-10 pt-1 sm:px-6">
@@ -257,145 +436,321 @@ export function SundayExperience() {
         </div>
       </header>
 
-      <div className="flex items-center justify-between pb-5">
-        <div>
+      <div className="flex items-center justify-between gap-3 pb-4">
+        <div className="min-w-0">
           <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted">Sunday</p>
-          <h2 className="font-serif text-3xl italic leading-tight text-ink">{formatWeekRange(weekStart)}</h2>
+          <h2 className="truncate font-serif text-3xl italic leading-tight text-ink">
+            {view === "week"
+              ? formatWeekRange(weekStart)
+              : monthDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+          </h2>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center rounded-full bg-surface-warm p-1">
           <button
             type="button"
-            onClick={() => setWeekStart((current) => addDays(current, -7))}
-            className="tap-scale grid size-11 place-items-center rounded-full text-ink"
-            aria-label="Previous week"
+            onClick={() => setView("week")}
+            className={cn(
+              "tap-scale rounded-full px-3 py-1.5 text-xs font-semibold",
+              view === "week" ? "bg-ink text-white" : "text-ink"
+            )}
           >
-            <ChevronLeft aria-hidden="true" size={20} strokeWidth={2} />
+            Week
           </button>
           <button
             type="button"
-            onClick={() => setWeekStart(startOfWeek(new Date()))}
-            className="tap-scale rounded-full bg-surface-warm px-3 py-2 text-xs font-semibold text-ink"
+            onClick={() => {
+              setMonthDate(weekStart);
+              setView("month");
+            }}
+            className={cn(
+              "tap-scale rounded-full px-3 py-1.5 text-xs font-semibold",
+              view === "month" ? "bg-ink text-white" : "text-ink"
+            )}
           >
-            Today
-          </button>
-          <button
-            type="button"
-            onClick={() => setWeekStart((current) => addDays(current, 7))}
-            className="tap-scale grid size-11 place-items-center rounded-full text-ink"
-            aria-label="Next week"
-          >
-            <ChevronRight aria-hidden="true" size={20} strokeWidth={2} />
+            Month
           </button>
         </div>
       </div>
+
+      <div className="flex items-center justify-between pb-5">
+        <button
+          type="button"
+          onClick={() =>
+            view === "week"
+              ? setWeekStart((current) => addDays(current, -7))
+              : setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))
+          }
+          className="tap-scale grid size-11 place-items-center rounded-full text-ink"
+          aria-label={view === "week" ? "Previous week" : "Previous month"}
+        >
+          <ChevronLeft aria-hidden="true" size={20} strokeWidth={2} />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setWeekStart(startOfWeek(new Date()));
+            setMonthDate(new Date());
+          }}
+          className="tap-scale rounded-full bg-surface-warm px-4 py-2 text-xs font-semibold text-ink"
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            view === "week"
+              ? setWeekStart((current) => addDays(current, 7))
+              : setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))
+          }
+          className="tap-scale grid size-11 place-items-center rounded-full text-ink"
+          aria-label={view === "week" ? "Next week" : "Next month"}
+        >
+          <ChevronRight aria-hidden="true" size={20} strokeWidth={2} />
+        </button>
+      </div>
+
+      {notice ? (
+        <p className="mb-4 rounded-lg bg-surface-warm px-4 py-3 text-sm leading-6 text-ink">{notice}</p>
+      ) : null}
 
       {groupStatus === "no-group" ? (
         <p className="rounded-lg border border-border bg-white/72 p-6 text-center text-sm leading-6 text-muted">
           Join or create a group first — the weekly plan is shared with your group.
         </p>
+      ) : view === "month" ? (
+        /* ============================ MONTH VIEW ============================ */
+        <div className="space-y-2">
+          <div className="grid grid-cols-[repeat(7,1fr)_2.4rem] gap-1 px-1">
+            {DAY_LETTERS.map((letter, index) => (
+              <p key={index} className="text-center font-mono text-[10px] uppercase text-muted">
+                {letter}
+              </p>
+            ))}
+            <span />
+          </div>
+
+          {monthLoading ? (
+            <div className="space-y-1">
+              {monthWeekKeys.map((key) => (
+                <div key={key} className="h-14 animate-pulse rounded-[14px] border border-border bg-white/60" />
+              ))}
+            </div>
+          ) : (
+            monthWeekKeys.map((key) => {
+              const weekDate = fromDateKey(key);
+              const weekItems = monthItems.filter((item) => item.weekStart === key);
+              const isViewedWeek = key === weekKey;
+
+              return (
+                <div
+                  key={key}
+                  className={cn(
+                    "grid grid-cols-[repeat(7,1fr)_2.4rem] items-center gap-1 rounded-[14px] border bg-white/72 p-1",
+                    isViewedWeek ? "border-ink" : "border-border"
+                  )}
+                >
+                  {DAY_LABELS.map((_, dayIndex) => {
+                    const date = addDays(weekDate, dayIndex);
+                    const inMonth = date.getMonth() === monthDate.getMonth();
+                    const isToday = toDateKey(date) === todayKey;
+                    const count = weekItems.filter((item) => item.dayOfWeek === dayIndex).length;
+
+                    return (
+                      <button
+                        key={dayIndex}
+                        type="button"
+                        onClick={() => {
+                          setWeekStart(weekDate);
+                          setView("week");
+                        }}
+                        className={cn(
+                          "tap-scale flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-[10px] text-xs",
+                          inMonth ? "text-ink" : "text-muted/50",
+                          isToday && "bg-ink text-white"
+                        )}
+                      >
+                        <span className="font-mono">{date.getDate()}</span>
+                        {count ? (
+                          <span className={cn("text-[10px] font-semibold", isToday ? "text-white" : "text-muted")}>
+                            {count}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-transparent">0</span>
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  <div className="flex flex-col items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => copyWeek(key, weekItems)}
+                      className="tap-scale grid size-8 place-items-center rounded-full bg-surface-warm text-ink"
+                      aria-label={`Copy week of ${formatWeekRange(weekDate)}`}
+                      title="Copy week"
+                    >
+                      <Copy aria-hidden="true" size={13} />
+                    </button>
+                    {copyBuffer ? (
+                      <button
+                        type="button"
+                        onClick={() => pasteWeek(key)}
+                        className="tap-scale grid size-8 place-items-center rounded-full bg-ink text-white"
+                        aria-label={`Paste into week of ${formatWeekRange(weekDate)}`}
+                        title="Paste week"
+                      >
+                        <ClipboardPaste aria-hidden="true" size={13} />
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          <p className="pt-1 text-center text-xs leading-5 text-muted">
+            Tap a day to open that week. Numbers show planned meals.
+          </p>
+        </div>
       ) : showSkeleton ? (
         <div className="space-y-3">
           {DAY_LABELS.map((label) => (
-            <div key={label} className="h-16 animate-pulse rounded-[18px] border border-border bg-white/60" />
+            <div key={label} className="h-24 animate-pulse rounded-[18px] border border-border bg-white/60" />
           ))}
         </div>
       ) : (
+        /* ============================ WEEK VIEW ============================ */
         <div className="space-y-3">
           {DAY_LABELS.map((label, dayIndex) => {
             const date = addDays(weekStart, dayIndex);
             const isToday = toDateKey(date) === todayKey;
-            const dayItems = items.filter((item) => item.dayOfWeek === dayIndex);
+            const dayItems = items
+              .filter((item) => item.dayOfWeek === dayIndex)
+              .sort((a, b) => SLOT_ORDER[a.mealSlot] - SLOT_ORDER[b.mealSlot] || a.position - b.position);
 
             return (
-              <section
-                key={label}
-                data-day={dayIndex}
-                className={cn(
-                  "rounded-[18px] border bg-white/72 p-4 transition",
-                  drag && drag.overDay === dayIndex ? "border-ink bg-surface-warm" : "border-border"
-                )}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
-                    {label}
-                    <span className={cn("ml-2", isToday && "rounded-full bg-ink px-2 py-0.5 text-white")}>
-                      {date.getDate()} {date.toLocaleDateString("en-GB", { month: "short" })}
-                    </span>
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setPickerDay(dayIndex)}
-                    className="tap-scale grid size-9 place-items-center rounded-full bg-surface-warm text-ink"
-                    aria-label={`Add a dish to ${label}`}
-                  >
-                    <Plus aria-hidden="true" size={17} strokeWidth={2.1} />
-                  </button>
+              <section key={label} data-day={dayIndex} className="rounded-[18px] border border-border bg-white/72 p-4">
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
+                  {label}
+                  <span className={cn("ml-2", isToday && "rounded-full bg-ink px-2 py-0.5 text-white")}>
+                    {date.getDate()} {date.toLocaleDateString("en-GB", { month: "short" })}
+                  </span>
+                </p>
+
+                <div className="mt-3 space-y-2">
+                  {MEAL_SLOTS.map((slot) => {
+                    const slotItems = dayItems.filter((item) => item.mealSlot === slot.key);
+                    const isDropTarget = drag && drag.overDay === dayIndex && drag.overSlot === slot.key;
+
+                    return (
+                      <div
+                        key={slot.key}
+                        data-day={dayIndex}
+                        data-slot={slot.key}
+                        className={cn(
+                          "rounded-[14px] border p-2 transition",
+                          isDropTarget ? "border-ink bg-surface-warm" : "border-border/60 bg-white/50"
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2 px-1">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">{slot.label}</p>
+                          <button
+                            type="button"
+                            onClick={() => setPicker({ day: dayIndex, slot: slot.key })}
+                            className="tap-scale grid size-7 place-items-center rounded-full bg-surface-warm text-ink"
+                            aria-label={`Add ${slot.label.toLowerCase()} on ${label}`}
+                          >
+                            <Plus aria-hidden="true" size={14} strokeWidth={2.1} />
+                          </button>
+                        </div>
+
+                        {slotItems.length ? (
+                          <ul className="mt-1.5 space-y-1.5">
+                            {slotItems.map((item) => {
+                              const entry = entriesById.get(item.foodEntryId);
+
+                              if (!entry) {
+                                return null;
+                              }
+
+                              return (
+                                <li
+                                  key={item.id}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-[12px] border border-border bg-white p-1.5 pr-2",
+                                    drag?.item.id === item.id && "opacity-40"
+                                  )}
+                                >
+                                  <button
+                                    type="button"
+                                    onPointerDown={(event) => handleDragStart(event, item)}
+                                    onPointerMove={handleDragMove}
+                                    onPointerUp={handleDragEnd}
+                                    onPointerCancel={handleDragEnd}
+                                    className="grid size-8 shrink-0 cursor-grab touch-none place-items-center text-muted active:cursor-grabbing"
+                                    aria-label={`Drag ${entry.title} to another day or meal`}
+                                  >
+                                    <GripVertical aria-hidden="true" size={15} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingItemId(item.id)}
+                                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                                  >
+                                    <img
+                                      src={thumbnailSrc(entry.photos[0])}
+                                      alt=""
+                                      loading="lazy"
+                                      className="size-10 shrink-0 rounded-[8px] object-cover"
+                                    />
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block truncate text-sm font-semibold text-ink">{entry.title}</span>
+                                      <span className="block font-mono text-xs text-muted">
+                                        ×{item.portions}
+                                        {item.isLeftover ? " · leftover" : ""}
+                                      </span>
+                                    </span>
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
-
-                {dayItems.length ? (
-                  <ul className="mt-3 space-y-2">
-                    {dayItems.map((item) => {
-                      const entry = entriesById.get(item.foodEntryId);
-
-                      if (!entry) {
-                        return null;
-                      }
-
-                      return (
-                        <li
-                          key={item.id}
-                          className={cn(
-                            "flex items-center gap-3 rounded-[14px] border border-border bg-white p-2 pr-3",
-                            drag?.item.id === item.id && "opacity-40"
-                          )}
-                        >
-                          <button
-                            type="button"
-                            onPointerDown={(event) => handleDragStart(event, item)}
-                            onPointerMove={handleDragMove}
-                            onPointerUp={handleDragEnd}
-                            onPointerCancel={handleDragEnd}
-                            className="grid size-9 shrink-0 cursor-grab touch-none place-items-center text-muted active:cursor-grabbing"
-                            aria-label={`Drag ${entry.title} to another day`}
-                          >
-                            <GripVertical aria-hidden="true" size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingItemId(item.id)}
-                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                          >
-                            <img
-                              src={thumbnailSrc(entry.photos[0])}
-                              alt=""
-                              loading="lazy"
-                              className="size-11 shrink-0 rounded-[10px] object-cover"
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold text-ink">{entry.title}</span>
-                              <span className="block font-mono text-xs text-muted">
-                                ×{item.portions}
-                                {item.isLeftover ? " · leftover" : ""}
-                              </span>
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <p className="mt-3 text-sm text-muted">Nothing planned.</p>
-                )}
               </section>
             );
           })}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => copyWeek(weekKey, items)}
+              className="tap-scale flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-surface-warm px-4 text-xs font-semibold text-ink"
+            >
+              <Copy aria-hidden="true" size={14} />
+              Copy this week
+            </button>
+            {copyBuffer ? (
+              <button
+                type="button"
+                onClick={() => pasteWeek(weekKey)}
+                className="tap-scale flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-4 text-xs font-semibold text-white"
+              >
+                <ClipboardPaste aria-hidden="true" size={14} />
+                Paste here
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
 
       {error ? <p className="mt-4 text-center text-sm leading-6 text-ink">{error}</p> : null}
 
-      {/* ---- weekly shopping list ---- */}
-      {shoppingList.length ? (
+      {/* ---- weekly shopping list (merged ingredients) ---- */}
+      {view === "week" && shoppingList.mealsCounted > 0 ? (
         <section className="mt-6 rounded-[18px] border border-border bg-white/72 p-4">
           <button
             type="button"
@@ -410,32 +765,25 @@ export function SundayExperience() {
           </button>
 
           {showShoppingList ? (
-            <div className="mt-4 space-y-4">
-              {shoppingList.map(({ entry, portions }) => {
-                const lines = ingredientLines(entry);
-
-                return (
-                  <div key={entry.id} className="border-t border-border pt-3">
-                    <p className="text-sm font-semibold text-ink">
-                      {entry.title} <span className="font-mono text-xs text-muted">×{portions}</span>
-                    </p>
-                    {lines.length ? (
-                      <ul className="mt-1 space-y-0.5">
-                        {lines.map((line, index) => (
-                          <li key={index} className="text-sm leading-6 text-muted">
-                            {line}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-1 text-sm leading-6 text-muted">
-                        No ingredients noted yet — open this card in HOME, tap edit, and add them.
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-              <p className="border-t border-border pt-3 text-xs leading-5 text-muted">
+            <div className="mt-4 space-y-3">
+              {shoppingList.lines.length ? (
+                <ul className="space-y-1">
+                  {shoppingList.lines.map((line) => (
+                    <li key={line.label} className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-1 text-base leading-7 text-ink">
+                      <span>{line.label}</span>
+                      {line.count > 1 ? <span className="font-mono text-xs text-muted">×{line.count}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm leading-6 text-muted">
+                  No ingredients noted on this week&apos;s dishes yet. Open a card in HOME, tap edit, and add them.
+                </p>
+              )}
+              <p className="text-xs leading-5 text-muted">
+                {shoppingList.mealsWithoutIngredients > 0
+                  ? `${shoppingList.mealsWithoutIngredients} planned ${shoppingList.mealsWithoutIngredients === 1 ? "meal has" : "meals have"} no ingredients noted. `
+                  : ""}
                 Leftover meals are skipped — they reuse what you already cooked.
               </p>
             </div>
@@ -454,23 +802,23 @@ export function SundayExperience() {
       ) : null}
 
       {/* ---- dish picker sheet ---- */}
-      {pickerDay !== null ? (
+      {picker ? (
         <div
           className="fixed inset-0 z-50 grid place-items-end bg-ink/55"
           onPointerDown={(event) => {
             if (event.target === event.currentTarget) {
-              setPickerDay(null);
+              setPicker(null);
             }
           }}
         >
           <div className="max-h-[72dvh] w-full overflow-y-auto rounded-t-[28px] bg-[#fffefa] p-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex items-center justify-between pb-4">
               <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
-                Add to {DAY_LABELS[pickerDay]}
+                {MEAL_SLOTS.find((slot) => slot.key === picker.slot)?.label} · {DAY_LABELS[picker.day]}
               </p>
               <button
                 type="button"
-                onClick={() => setPickerDay(null)}
+                onClick={() => setPicker(null)}
                 className="tap-scale grid size-10 place-items-center text-muted hover:text-ink"
                 aria-label="Close picker"
               >
@@ -479,23 +827,62 @@ export function SundayExperience() {
             </div>
 
             {entries.length ? (
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-                {entries.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    onClick={() => addDish(entry, pickerDay)}
-                    className="tap-scale overflow-hidden rounded-[14px] border border-border bg-white text-left"
-                  >
-                    <img
-                      src={thumbnailSrc(entry.photos[0])}
-                      alt=""
-                      loading="lazy"
-                      className="aspect-square w-full object-cover"
-                    />
-                    <span className="block truncate p-2 text-xs font-semibold text-ink">{entry.title}</span>
-                  </button>
-                ))}
+              <div className="space-y-5">
+                {pickerEntries.suggested.length ? (
+                  <div>
+                    <p className="pb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+                      Tagged “{picker.slot}”
+                    </p>
+                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                      {pickerEntries.suggested.map((entry) => (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => addDish(entry, picker.day, picker.slot)}
+                          className="tap-scale overflow-hidden rounded-[14px] border border-border bg-white text-left"
+                        >
+                          <img
+                            src={thumbnailSrc(entry.photos[0])}
+                            alt=""
+                            loading="lazy"
+                            className="aspect-square w-full object-cover"
+                          />
+                          <span className="block truncate p-2 text-xs font-semibold text-ink">{entry.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {pickerEntries.rest.length ? (
+                  <div>
+                    {pickerEntries.suggested.length ? (
+                      <p className="pb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Everything else</p>
+                    ) : (
+                      <p className="pb-2 text-xs leading-5 text-muted">
+                        Tip: tag cards “{picker.slot}” in HOME and they&apos;ll appear first here.
+                      </p>
+                    )}
+                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                      {pickerEntries.rest.map((entry) => (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => addDish(entry, picker.day, picker.slot)}
+                          className="tap-scale overflow-hidden rounded-[14px] border border-border bg-white text-left"
+                        >
+                          <img
+                            src={thumbnailSrc(entry.photos[0])}
+                            alt=""
+                            loading="lazy"
+                            className="aspect-square w-full object-cover"
+                          />
+                          <span className="block truncate p-2 text-xs font-semibold text-ink">{entry.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <p className="pb-6 text-center text-sm leading-6 text-muted">
@@ -532,6 +919,25 @@ export function SundayExperience() {
             </div>
 
             <div className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border border-border bg-white p-3">
+                <span className="text-sm font-medium text-ink">Meal</span>
+                <div className="flex items-center gap-1">
+                  {MEAL_SLOTS.map((slot) => (
+                    <button
+                      key={slot.key}
+                      type="button"
+                      onClick={() => changeItem(editingItem.id, { mealSlot: slot.key })}
+                      className={cn(
+                        "tap-scale rounded-full px-3 py-1.5 text-xs font-semibold",
+                        editingItem.mealSlot === slot.key ? "bg-ink text-white" : "bg-surface-warm text-ink"
+                      )}
+                    >
+                      {slot.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex items-center justify-between rounded-lg border border-border bg-white p-3">
                 <span className="text-sm font-medium text-ink">Portions</span>
                 <div className="flex items-center gap-3">

@@ -21,12 +21,18 @@ create table if not exists public.meal_plan_items (
   food_entry_id uuid not null references public.food_entries(id) on delete cascade,
   week_start date not null,                -- the Monday of the planned week
   day_of_week integer not null check (day_of_week between 0 and 6),  -- 0 = Monday
+  meal_slot text not null default 'dinner' check (meal_slot in ('breakfast', 'lunch', 'dinner')),
   portions integer not null default 2 check (portions between 1 and 12),
   is_leftover boolean not null default false,
   position integer not null default 0,
   created_by uuid references auth.users(id),
   created_at timestamptz default now()
 );
+
+-- If the table was created by an earlier version of this file, add the slot column.
+alter table public.meal_plan_items
+  add column if not exists meal_slot text not null default 'dinner'
+  check (meal_slot in ('breakfast', 'lunch', 'dinner'));
 
 create index if not exists meal_plan_items_group_week_idx
   on public.meal_plan_items(group_id, week_start);

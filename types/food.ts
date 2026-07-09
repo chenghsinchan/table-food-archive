@@ -36,12 +36,15 @@ export type FoodEntry = {
   photos: FoodPhoto[];
 };
 
+export type MealSlot = "breakfast" | "lunch" | "dinner";
+
 export type MealPlanItem = {
   id: string;
   groupId: string;
   foodEntryId: string;
   weekStart: string;
   dayOfWeek: number;
+  mealSlot: MealSlot;
   portions: number;
   isLeftover: boolean;
   position: number;
