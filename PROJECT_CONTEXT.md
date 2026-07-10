@@ -86,7 +86,7 @@ The app uses frontend-safe Supabase variables only:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-NEXT_PUBLIC_ALLOWED_EMAILS=chenghsinchan@gmail.com,saulemiezyte@gmail.com
+NEXT_PUBLIC_ALLOWED_EMAILS=chenghsinchan@gmail.com
 ```
 
 Do not use or commit Supabase service-role keys or other secret keys.
