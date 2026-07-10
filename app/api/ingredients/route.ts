@@ -5,7 +5,10 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // Google AI Studio model used to read ingredients from a food photo.
-const GEMINI_MODEL = "gemini-2.5-flash-lite";
+// "gemini-flash-lite-latest" is Google's alias for the newest Flash-Lite
+// (currently Gemini 3.1 Flash-Lite) — it keeps working as versions rotate;
+// fixed model names get retired for new accounts (2.5 Flash-Lite already is).
+const GEMINI_MODEL = "gemini-flash-lite-latest";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
@@ -114,9 +117,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This photo doesn't look like a dish, so no ingredients were found." }, { status: 422 });
   }
 
+  // Strip list markers ("- ", "• ", "1. ", "2) ") but keep quantity digits ("150g").
   const lines = text
     .split("\n")
-    .map((line) => line.replace(/^[\s*\-•\d.)]+/, "").trim())
+    .map((line) => line.replace(/^\s*(?:[*\-•]+|\d+[.)])\s*/, "").trim())
     .filter(Boolean);
 
   if (!lines.length) {
