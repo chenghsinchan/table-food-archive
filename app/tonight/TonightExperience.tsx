@@ -64,7 +64,7 @@ function DeckCard({
       onPointerUp={isTop ? onPointerUp : undefined}
       onPointerCancel={isTop ? onPointerUp : undefined}
       className={cn(
-        "absolute inset-0 overflow-hidden rounded-[30px] border border-white/60 bg-ink text-left shadow-sm transition-opacity duration-150",
+        "absolute inset-0 overflow-hidden rounded-[30px] bg-ink text-left shadow-sm transition-opacity duration-150",
         isTop ? "cursor-grab touch-none active:cursor-grabbing" : "pointer-events-none opacity-60",
         !isTop && "pattern-riso"
       )}

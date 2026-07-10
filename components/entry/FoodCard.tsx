@@ -24,7 +24,7 @@ export function FoodCard({ entry, index, onSelect }: FoodCardProps) {
     <button
       type="button"
       onClick={() => onSelect(entry)}
-      className="group mb-1.5 block w-full break-inside-avoid overflow-hidden rounded-lg bg-ink text-left outline-none focus:outline-none focus-visible:outline-none"
+      className="group mb-1.5 block w-full break-inside-avoid overflow-hidden rounded-lg text-left outline-none focus:outline-none focus-visible:outline-none"
     >
       <article className="relative">
         <img

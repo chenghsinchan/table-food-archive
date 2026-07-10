@@ -131,6 +131,8 @@ export function SundayExperience() {
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [monthItems, setMonthItems] = useState<MealPlanItem[]>([]);
   const [monthLoading, setMonthLoading] = useState(false);
+  const [expandedMonthWeek, setExpandedMonthWeek] = useState<string | null>(null);
+  const [expandedDays, setExpandedDays] = useState<Set<number>>(() => new Set());
 
   const busyRef = useRef(false);
   const longPressRef = useRef<{ timer: number | null; x: number; y: number; fired: boolean }>({
@@ -169,6 +171,34 @@ export function SundayExperience() {
   useEffect(() => {
     loadItems();
   }, [loadItems]);
+
+  // Today and tomorrow start open; every other day starts collapsed.
+  useEffect(() => {
+    const defaults = new Set<number>();
+    const now = new Date();
+
+    for (const date of [now, addDays(now, 1)]) {
+      if (toDateKey(startOfWeek(date)) === weekKey) {
+        defaults.add((date.getDay() + 6) % 7);
+      }
+    }
+
+    setExpandedDays(defaults);
+  }, [weekKey]);
+
+  function toggleDay(dayIndex: number) {
+    setExpandedDays((current) => {
+      const next = new Set(current);
+
+      if (next.has(dayIndex)) {
+        next.delete(dayIndex);
+      } else {
+        next.add(dayIndex);
+      }
+
+      return next;
+    });
+  }
 
   const monthWeekKeys = useMemo(() => weeksOfMonth(monthDate).map(toDateKey), [monthDate]);
 
@@ -604,11 +634,12 @@ export function SundayExperience() {
                   onPointerCancel={endWeekPress}
                   onClickCapture={suppressClickAfterPress}
                   className={cn(
-                    "grid select-none grid-cols-7 items-stretch gap-1 rounded-[14px] border bg-white/72 p-1",
+                    "select-none rounded-[14px] border bg-white/72 p-1",
                     isViewedWeek ? "border-ink" : "border-border",
                     copyBuffer?.sourceKey === key && "bg-surface-warm"
                   )}
                 >
+                  <div className="grid grid-cols-7 items-stretch gap-1">
                   {DAY_LABELS.map((_, dayIndex) => {
                     const date = addDays(weekDate, dayIndex);
                     const inMonth = date.getMonth() === monthDate.getMonth();
@@ -622,6 +653,12 @@ export function SundayExperience() {
                         key={dayIndex}
                         type="button"
                         onClick={() => {
+                          // First tap expands the week's dishes; second tap opens the week.
+                          if (expandedMonthWeek !== key) {
+                            setExpandedMonthWeek(key);
+                            return;
+                          }
+
                           setWeekStart(weekDate);
                           setView("week");
                         }}
@@ -651,13 +688,40 @@ export function SundayExperience() {
                       </button>
                     );
                   })}
+                  </div>
+
+                  {expandedMonthWeek === key && weekItems.length ? (
+                    <div className="mt-1 space-y-1 border-t border-border/60 px-2 pb-1 pt-2">
+                      {DAY_LABELS.map((dayLabel, dayIndex) => {
+                        const dayItems = weekItems
+                          .filter((item) => item.dayOfWeek === dayIndex)
+                          .sort((a, b) => SLOT_ORDER[a.mealSlot] - SLOT_ORDER[b.mealSlot] || a.position - b.position);
+
+                        if (!dayItems.length) {
+                          return null;
+                        }
+
+                        return (
+                          <p key={dayIndex} className="text-xs leading-5 text-ink">
+                            <span className="mr-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+                              {dayLabel.slice(0, 3)} {addDays(weekDate, dayIndex).getDate()}
+                            </span>
+                            {dayItems
+                              .map((item) => entriesById.get(item.foodEntryId)?.title)
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
               );
             })
           )}
 
           <p className="pt-1 text-center text-xs leading-5 text-muted">
-            Tap a day to open that week. Long press a week to copy or paste a plan.
+            Tap a week to see its dishes, tap a day again to open it. Long press a week to copy or paste a plan.
           </p>
         </div>
       ) : showSkeleton ? (
@@ -678,13 +742,24 @@ export function SundayExperience() {
 
             return (
               <section key={label} data-day={dayIndex} className="rounded-[18px] border border-border bg-white/72 p-4">
-                <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
-                  {label}
-                  <span className={cn("ml-2", isToday && "rounded-full bg-ink px-2 py-0.5 text-white")}>
-                    {date.getDate()} {date.toLocaleDateString("en-GB", { month: "short" })}
-                  </span>
-                </p>
+                <button
+                  type="button"
+                  onClick={() => toggleDay(dayIndex)}
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                  aria-expanded={expandedDays.has(dayIndex)}
+                >
+                  <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
+                    {label}
+                    <span className={cn("ml-2", isToday && "rounded-full bg-ink px-2 py-0.5 text-white")}>
+                      {date.getDate()} {date.toLocaleDateString("en-GB", { month: "short" })}
+                    </span>
+                  </p>
+                  {!expandedDays.has(dayIndex) && dayItems.length ? (
+                    <span className="font-mono text-xs text-muted">{dayItems.length}</span>
+                  ) : null}
+                </button>
 
+                {expandedDays.has(dayIndex) ? (
                 <div className="mt-3 space-y-2">
                   {MEAL_SLOTS.map((slot) => {
                     const slotItems = dayItems.filter((item) => item.mealSlot === slot.key);
@@ -768,6 +843,7 @@ export function SundayExperience() {
                     );
                   })}
                 </div>
+                ) : null}
               </section>
             );
           })}

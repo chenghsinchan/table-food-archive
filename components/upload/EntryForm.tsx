@@ -35,12 +35,12 @@ export function EntryForm({ entries }: EntryFormProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [status, setStatus] = useState<"idle" | "saving" | "detecting" | "saved">("idle");
   const [error, setError] = useState("");
   const savingRef = useRef(false);
   const returnTo = safeReturnPath(searchParams.get("returnTo"));
   const savedTags = useSavedTags(tags);
-  const isSaving = status === "saving";
+  const isSaving = status === "saving" || status === "detecting";
 
   useEffect(() => {
     setTagSourceEntries(entries);
@@ -117,7 +117,33 @@ export function EntryForm({ entries }: EntryFormProps) {
       const entry = buildLocalEntry({ id: entryId, form, title, type, wantToRecreate, tags, photos: uploadedPhotos, groupId: activeGroupId ?? undefined });
 
       await createEntryInSupabase(supabase, entry, { createdById: user?.id ?? null });
-      upsertEntry({ ...entry, createdById: user?.id ?? undefined });
+
+      let finalEntry = { ...entry, createdById: user?.id ?? undefined };
+
+      // "Want to recreate" means they'll cook it again — auto-read the
+      // ingredients from the photo (unless they already typed some).
+      // Failures are silent: ingredients can always be added by hand later.
+      if (wantToRecreate && !entry.ingredients && uploadedPhotos[0]?.imageUrl) {
+        setStatus("detecting");
+
+        try {
+          const response = await fetch("/api/ingredients", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageUrl: uploadedPhotos[0].imageUrl })
+          });
+          const data = (await response.json()) as { ingredients?: string };
+
+          if (response.ok && data.ingredients) {
+            await supabase.from("food_entries").update({ ingredients: data.ingredients }).eq("id", entry.id);
+            finalEntry = { ...finalEntry, ingredients: data.ingredients };
+          }
+        } catch {
+          // ignore — the card is already saved
+        }
+      }
+
+      upsertEntry(finalEntry);
       setStatus("saved");
 
       // Notify the other group members that a new card was added. Fire-and-forget
@@ -276,7 +302,13 @@ export function EntryForm({ entries }: EntryFormProps) {
         className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-70"
       >
         <Save aria-hidden="true" size={18} />
-        {status === "saving" ? "Saving..." : status === "saved" ? "Saved" : "Save memory"}
+        {status === "saving"
+          ? "Saving..."
+          : status === "detecting"
+            ? "Reading ingredients..."
+            : status === "saved"
+              ? "Saved"
+              : "Save memory"}
       </button>
       {error ? <p className="text-center text-sm leading-6 text-accent">{error}</p> : null}
     </form>
