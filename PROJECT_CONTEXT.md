@@ -38,7 +38,8 @@ Note: the LOVE tab is served by the component named `RecipesExperience` (an earl
 - Drag a planned dish between days AND slots using its grip handle; tap it to change meal slot, set portions (1–12), mark it as a leftover, or remove it.
 - The shopping list merges ingredient lines across all planned meals into one plain list (e.g. "eggs ×3"), alphabetical; leftover meals are skipped and dishes missing ingredients are counted in a note.
 - Month view (Week/Month toggle): calendar grid showing planned dish names in each day cell (first two + "+n"); tap a day to open its week. Long press a week row to open a menu with "Copy week" and — once something is copied — "Paste plan" on another week. Week view also has "Copy this week" / "Paste here". The center pill between the arrows shows the current range ("20–26 Jul" / "July 2026") and tapping it jumps back to today.
-- Ingredients live on the food card (`food_entries.ingredients`, one per line) — editable in the card's edit mode and on the add form. An AI photo→ingredients step can fill this field later.
+- Ingredients live on the food card (`food_entries.ingredients`, one per line) — editable in the card's edit mode and on the add form.
+- AI ingredient detection: in a card's edit mode, "Detect from photo" sends the card's photo to Google's Gemini 2.5 Flash-Lite (`app/api/ingredients/route.ts`, server-side only) which returns ingredient lines appended to the box for review before saving. Needs `GEMINI_API_KEY` (from https://aistudio.google.com/apikey) as a server-only env var in Vercel; without it the button shows a friendly "not set up yet" message. The key is never exposed to the browser or committed.
 - Plans are stored in `meal_plan_items` (see `supabase/sunday-meal-plan.sql`), scoped to the active group with row-level security. Each row has `meal_slot` ('breakfast' | 'lunch' | 'dinner').
 
 ## How LOVE Works

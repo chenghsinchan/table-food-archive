@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, CalendarDays, Check, ImagePlus, Pencil, Trash2, X } from "lucide-react";
+import { BookOpen, CalendarDays, Check, ImagePlus, Pencil, Sparkles, Trash2, X } from "lucide-react";
 import type { FoodEntry, FoodPhoto } from "@/types/food";
 import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
 import { TagPill } from "@/components/ui/TagPill";
@@ -61,6 +61,8 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
+  const [detecting, setDetecting] = useState(false);
+  const [detectError, setDetectError] = useState("");
   const savedTags = useSavedTags([...entry.tags, ...draft.tags]);
   const newPhotoPreviews = useMemo(
     () => draft.files.map((file) => ({ file, url: URL.createObjectURL(file) })),
@@ -245,6 +247,43 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
 
     const imageFiles = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
     setDraft((current) => ({ ...current, files: [...current.files, ...imageFiles] }));
+  }
+
+  async function detectIngredients() {
+    const photo = draft.photos[0] ?? entry.photos[0];
+
+    if (!photo) {
+      setDetectError("Add a photo first — the AI reads ingredients from it.");
+      return;
+    }
+
+    setDetecting(true);
+    setDetectError("");
+
+    try {
+      const response = await fetch("/api/ingredients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: photo.imageUrl })
+      });
+      const data = (await response.json().catch(() => ({}))) as { ingredients?: string; error?: string };
+
+      if (!response.ok || !data.ingredients) {
+        throw new Error(data.error || "Could not read this photo.");
+      }
+
+      // Append below anything already written so nothing is overwritten.
+      setDraft((current) => ({
+        ...current,
+        ingredients: current.ingredients.trim()
+          ? `${current.ingredients.trim()}\n${data.ingredients}`
+          : data.ingredients ?? ""
+      }));
+    } catch (caught) {
+      setDetectError(caught instanceof Error ? caught.message : "Could not read this photo.");
+    } finally {
+      setDetecting(false);
+    }
   }
 
   async function saveEdit() {
@@ -479,13 +518,25 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
             <section className="border-t border-border pt-6">
               <h3 className="mb-4 font-mono text-sm uppercase text-muted">Ingredients</h3>
               {isEditing ? (
-                <textarea
-                  value={draft.ingredients}
-                  onChange={(event) => setDraft((current) => ({ ...current, ingredients: event.target.value }))}
-                  rows={5}
-                  className="w-full rounded-lg border border-border bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-accent"
-                  placeholder={"One ingredient per line, e.g.\n300g squid\n2 lemons\nolive oil"}
-                />
+                <div className="space-y-3">
+                  <textarea
+                    value={draft.ingredients}
+                    onChange={(event) => setDraft((current) => ({ ...current, ingredients: event.target.value }))}
+                    rows={5}
+                    className="w-full rounded-lg border border-border bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-accent"
+                    placeholder={"One ingredient per line, e.g.\n300g squid\n2 lemons\nolive oil"}
+                  />
+                  <button
+                    type="button"
+                    onClick={detectIngredients}
+                    disabled={detecting}
+                    className="tap-scale flex min-h-11 items-center gap-2 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <Sparkles aria-hidden="true" size={15} strokeWidth={1.9} />
+                    {detecting ? "Reading photo…" : "Detect from photo"}
+                  </button>
+                  {detectError ? <p className="text-sm leading-6 text-accent">{detectError}</p> : null}
+                </div>
               ) : (
                 <ul className="space-y-1">
                   {(entry.ingredients ?? "")
