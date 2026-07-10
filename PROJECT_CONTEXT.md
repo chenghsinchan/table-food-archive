@@ -42,6 +42,15 @@ Note: the LOVE tab is served by the component named `RecipesExperience` (an earl
 - AI ingredient detection: in a card's edit mode, "Detect from photo" sends the card's photo to Google's Gemini 2.5 Flash-Lite (`app/api/ingredients/route.ts`, server-side only) which returns ingredient lines appended to the box for review before saving. Needs `GEMINI_API_KEY` (from https://aistudio.google.com/apikey) as a server-only env var in Vercel; without it the button shows a friendly "not set up yet" message. The key is never exposed to the browser or committed.
 - Plans are stored in `meal_plan_items` (see `supabase/sunday-meal-plan.sql`), scoped to the active group with row-level security. Each row has `meal_slot` ('breakfast' | 'lunch' | 'dinner').
 
+## How Invites & Groups Work (accounts)
+
+- Two kinds of invites:
+  - **App invites** (`app_invites` table, UI in Profile → "Invite friends to TABLE"): invite a friend to TABLE itself by email; share the generated `/join/<token>` link. The friend signs in with Google using that email and can use the app — **without joining any group**. Each user can send up to 3 app invites; chenghsinchan@gmail.com is exempt (unlimited) via a database trigger.
+  - **Group membership**: a group member opens Profile → group → **Edit** and adds a member by email (the person must already have a TABLE account) or removes members. Invited-but-ungrouped friends do not appear anywhere in the panel until added to a group.
+- Limits: max **3 groups per user**, groups are **1–4 people** — enforced both in the UI and by database triggers.
+- Access rule (AuthGate): allowed emails OR group members OR anyone with an app invite get in; everyone else sees the "You need an invitation" screen.
+- SQL for all of this: `supabase/app-invites.sql` (also raises the group limit to 3 and lets members remove other members).
+
 ## How LOVE Works
 
 - All three tabs share one in-memory entry cache (`lib/entries/EntryCacheProvider.tsx`). LOVE simply shows `entries.filter((entry) => entry.isLoved)`.

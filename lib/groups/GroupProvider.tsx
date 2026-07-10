@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { Group, GroupMember } from "@/types/food";
 import { createClient } from "@/lib/supabase/client";
 import {
+  addMemberByEmail as addMemberByEmailInSupabase,
   createGroup as createGroupInSupabase,
   getActiveGroupId,
   getGroupMembers,
@@ -25,6 +26,7 @@ type GroupContextValue = {
   selectGroup: (groupId: string) => Promise<void>;
   createGroup: (name: string, description?: string) => Promise<void>;
   updateGroup: (name: string, description?: string) => Promise<void>;
+  addMember: (email: string) => Promise<void>;
   removeMember: (memberUserId: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -143,7 +145,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (groups.length >= MAX_GROUPS_PER_USER) {
-        throw new Error("You can only join up to 2 groups for now.");
+        throw new Error(`You can only join up to ${MAX_GROUPS_PER_USER} groups for now.`);
       }
 
       const newGroupId = await createGroupInSupabase(supabase, userId, name, description);
@@ -198,6 +200,20 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     [activeGroupId, loadGroups]
   );
 
+  const addMember = useCallback(
+    async (email: string) => {
+      const supabase = createClient();
+
+      if (!supabase || !activeGroupId) {
+        throw new Error("No active group to add members to.");
+      }
+
+      await addMemberByEmailInSupabase(supabase, activeGroupId, email);
+      setMembers(await getGroupMembers(supabase, activeGroupId));
+    },
+    [activeGroupId]
+  );
+
   const value = useMemo<GroupContextValue>(() => {
     const activeGroup = groups.find((group) => group.id === activeGroupId) ?? null;
 
@@ -212,10 +228,11 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       selectGroup,
       createGroup,
       updateGroup,
+      addMember,
       removeMember,
       refresh: loadGroups
     };
-  }, [groups, activeGroupId, members, userId, status, selectGroup, createGroup, updateGroup, removeMember, loadGroups]);
+  }, [groups, activeGroupId, members, userId, status, selectGroup, createGroup, updateGroup, addMember, removeMember, loadGroups]);
 
   return <GroupContext.Provider value={value}>{children}</GroupContext.Provider>;
 }

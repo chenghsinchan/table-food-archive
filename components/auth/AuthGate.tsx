@@ -10,6 +10,7 @@ import { ProfileSetup } from "@/components/auth/ProfileSetup";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { isAllowedEmail } from "@/lib/auth/allowed";
 import { createClient } from "@/lib/supabase/client";
+import { acceptAppInvite, getAppInviteForEmail } from "@/lib/supabase/app-invites";
 import { getMembershipCount, getPendingInvitesForEmail } from "@/lib/supabase/groups";
 
 type AuthGateProps = {
@@ -52,9 +53,9 @@ export function AuthGate({ children }: AuthGateProps) {
           return;
         }
 
-        // Access is granted to the original allowed users, OR to anyone who is
-        // already a member of a group (invited friends become members once they
-        // accept an invite). Non-allowed, non-members are asked for an invite.
+        // Access is granted to the original allowed users, group members, or
+        // anyone invited to TABLE with an app invite. App-invited friends enter
+        // without a group — a member can add them to a group later by email.
         if (!isAllowedEmail(user.email)) {
           const memberships = await getMembershipCount(supabase, user.id);
 
@@ -70,8 +71,18 @@ export function AuthGate({ children }: AuthGateProps) {
               return;
             }
 
-            setState({ status: "no-invite", email: user.email });
-            return;
+            const appInvite = user.email ? await getAppInviteForEmail(supabase, user.email) : null;
+
+            if (!active) return;
+
+            if (!appInvite) {
+              setState({ status: "no-invite", email: user.email });
+              return;
+            }
+
+            if (appInvite.status === "pending") {
+              await acceptAppInvite(supabase, appInvite.id);
+            }
           }
         }
 

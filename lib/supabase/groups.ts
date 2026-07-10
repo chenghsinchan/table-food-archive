@@ -165,6 +165,45 @@ export async function createGroup(
   return groupId;
 }
 
+/**
+ * Add an existing TABLE user to a group by their email.
+ * Fails with a friendly message if they have no TABLE account yet.
+ */
+export async function addMemberByEmail(supabase: SupabaseClient, groupId: string, email: string): Promise<void> {
+  const normalized = email.trim().toLowerCase();
+
+  if (!normalized || !normalized.includes("@")) {
+    throw new Error("Enter a valid email address.");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .ilike("email", normalized)
+    .maybeSingle();
+
+  if (!profile) {
+    throw new Error("No TABLE account with that email yet. Invite them to TABLE first, and ask them to sign in once.");
+  }
+
+  if ((await getGroupMemberCount(supabase, groupId)) >= MAX_MEMBERS_PER_GROUP) {
+    throw new Error("This group already has 4 members.");
+  }
+
+  const { error } = await supabase
+    .from("group_members")
+    .insert({ group_id: groupId, user_id: profile.id as string, role: "member" });
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("They are already in this group.");
+    }
+
+    // Surfaces the database limit messages (e.g. their 3-group limit).
+    throw new Error(error.message || "Could not add this member.");
+  }
+}
+
 /** Remove a member from a group (also used to leave a group yourself). */
 export async function removeMember(supabase: SupabaseClient, groupId: string, userId: string): Promise<void> {
   const { error } = await supabase

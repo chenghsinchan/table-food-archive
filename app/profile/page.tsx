@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { NotificationSettings } from "@/components/notifications/NotificationSettings";
 import { GroupPanel } from "@/components/profile/GroupPanel";
+import { InviteFriends } from "@/components/profile/InviteFriends";
 import { ProfileEditor } from "@/components/profile/ProfileEditor";
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default function ProfilePage() {
       </header>
       <ProfileEditor />
       <GroupPanel />
+      <InviteFriends />
       <NotificationSettings />
     </div>
   );
