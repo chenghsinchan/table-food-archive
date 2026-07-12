@@ -691,7 +691,7 @@ export function SundayExperience() {
                   </div>
 
                   {expandedMonthWeek === key && weekItems.length ? (
-                    <div className="mt-1 space-y-1 border-t border-border/60 px-2 pb-1 pt-2">
+                    <div className="mt-1 divide-y divide-border/50 border-t border-border/60 px-2 pt-1">
                       {DAY_LABELS.map((dayLabel, dayIndex) => {
                         const dayItems = weekItems
                           .filter((item) => item.dayOfWeek === dayIndex)
@@ -702,15 +702,18 @@ export function SundayExperience() {
                         }
 
                         return (
-                          <p key={dayIndex} className="text-xs leading-5 text-ink">
-                            <span className="mr-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-                              {dayLabel.slice(0, 3)} {addDays(weekDate, dayIndex).getDate()}
+                          <div key={dayIndex} className="flex gap-3 py-2">
+                            <span className="w-8 shrink-0 pt-px font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+                              {dayLabel.slice(0, 3)}
                             </span>
-                            {dayItems
-                              .map((item) => entriesById.get(item.foodEntryId)?.title)
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </p>
+                            <ul className="min-w-0 flex-1 space-y-1">
+                              {dayItems.map((item) => (
+                                <li key={item.id} className="truncate text-xs leading-5 text-ink">
+                                  {entriesById.get(item.foodEntryId)?.title}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
                         );
                       })}
                     </div>
