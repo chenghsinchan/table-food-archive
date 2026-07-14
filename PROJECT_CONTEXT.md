@@ -51,6 +51,12 @@ Note: the LOVE tab is served by the component named `RecipesExperience` (an earl
 - Access rule (AuthGate): allowed emails OR group members OR anyone with an app invite get in; everyone else sees the "You need an invitation" screen.
 - SQL for all of this: `supabase/app-invites.sql` (also raises the group limit to 3 and lets members remove other members).
 
+## Paper "human touch" texture
+
+- Warm cream canvas (`--background`) with a fine paper grain applied globally via `body::before` (inline feTurbulence, multiply blend). `app/globals.css`.
+- Food cards get hand-cut **deckle edges** via an SVG displacement filter (`#tableDeckle`, defined once in `app/layout.tsx`) applied with the `.card-deckle` class, plus a `.riso-grain` overlay so photos read as printed. The HOME grid uses larger gaps (`gap-3`, `mb-3`) so the wavy edges have room. Disabled under `prefers-reduced-motion`.
+- First-login empty archive shows `components/home/FirstDishEmptyState.tsx`: a cut-paper card (deckle edge) with a paper-cut plate + sage sprig, "Your table is set → Add your first dish", and an **Add a dish** button, over faint dashed "slots". Shown only when the archive is truly empty (an empty *search* still shows a plain "No matches").
+
 ## How LOVE Works
 
 - All three tabs share one in-memory entry cache (`lib/entries/EntryCacheProvider.tsx`). LOVE simply shows `entries.filter((entry) => entry.isLoved)`.

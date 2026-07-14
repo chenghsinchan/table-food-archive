@@ -40,6 +40,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        {/* Shared hand-cut deckle-edge filter (used by .card-deckle and paper illustrations). */}
+        <svg aria-hidden="true" width="0" height="0" style={{ position: "absolute" }} focusable="false">
+          <filter id="tableDeckle" x="-5%" y="-6%" width="110%" height="112%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.02 0.03" numOctaves="2" seed="7" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </svg>
         <AppShell>{children}</AppShell>
         <ServiceWorkerRegister />
       </body>

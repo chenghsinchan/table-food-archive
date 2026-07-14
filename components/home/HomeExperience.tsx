@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { FoodEntry } from "@/types/food";
 import { FoodEntryModal } from "@/components/entry/FoodEntryModal";
+import { FirstDishEmptyState } from "@/components/home/FirstDishEmptyState";
 import { HomeGrid } from "@/components/home/HomeGrid";
 import { ProfileButton } from "@/components/profile/ProfileButton";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -56,11 +57,13 @@ export function HomeExperience() {
           entries={visibleEntries}
           onSelect={setSelectedEntry}
         />
-      ) : (
+      ) : query ? (
         <EmptyState
-          title="Nothing here yet"
-          description={error || "Add a meal and it will settle into the archive."}
+          title="No matches"
+          description="Nothing here fits that search — try another word."
         />
+      ) : (
+        <FirstDishEmptyState message={error || undefined} />
       )}
 
       {selectedEntry ? (

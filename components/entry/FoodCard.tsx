@@ -24,9 +24,9 @@ export function FoodCard({ entry, index, onSelect }: FoodCardProps) {
     <button
       type="button"
       onClick={() => onSelect(entry)}
-      className="group mb-1.5 block w-full break-inside-avoid overflow-hidden rounded-lg text-left outline-none focus:outline-none focus-visible:outline-none"
+      className="group mb-3 block w-full break-inside-avoid text-left outline-none focus:outline-none focus-visible:outline-none"
     >
-      <article className="relative">
+      <article className="card-deckle relative overflow-hidden rounded-[14px]">
         <img
           src={thumbnailSrc(photo)}
           alt={photo.alt}
@@ -37,6 +37,7 @@ export function FoodCard({ entry, index, onSelect }: FoodCardProps) {
             aspectByIndex[index % aspectByIndex.length]
           )}
         />
+        <span className="riso-grain" aria-hidden="true" />
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/68 via-black/18 to-transparent p-3 text-white">
           <div className="space-y-1">
             <h3 className="line-clamp-2 text-[15px] font-semibold leading-tight">{entry.title}</h3>
