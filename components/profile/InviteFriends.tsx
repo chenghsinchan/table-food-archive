@@ -108,8 +108,8 @@ export function InviteFriends() {
       <div className="space-y-1">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Invite friends to TABLE</p>
         <p className="text-sm leading-6 text-muted">
-          Invited friends can sign in with Google and use TABLE. They join your groups only when a group
-          member adds them.
+          Invited friends can sign in with Google and start their own archive right away. They join yours
+          only when an archive member adds them.
         </p>
       </div>
 

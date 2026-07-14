@@ -60,7 +60,7 @@ export function GroupPanel() {
 
     const trimmed = editName.trim();
     if (!trimmed) {
-      setEditError("Give the group a name.");
+      setEditError("Give the archive a name.");
       return;
     }
 
@@ -70,7 +70,7 @@ export function GroupPanel() {
       await updateGroup(trimmed, editDescription);
       setEditingGroup(false);
     } catch (caught) {
-      setEditError(caught instanceof Error ? caught.message : "Could not update the group.");
+      setEditError(caught instanceof Error ? caught.message : "Could not update the archive.");
     } finally {
       setEditBusy(false);
     }
@@ -122,7 +122,7 @@ export function GroupPanel() {
 
     const trimmed = name.trim();
     if (!trimmed) {
-      setError("Give the group a name.");
+      setError("Give the archive a name.");
       return;
     }
 
@@ -134,7 +134,7 @@ export function GroupPanel() {
       setDescription("");
       setShowCreate(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not create the group.");
+      setError(caught instanceof Error ? caught.message : "Could not create the archive.");
     } finally {
       setBusy(false);
     }
@@ -143,7 +143,7 @@ export function GroupPanel() {
   if (status === "loading") {
     return (
       <section className="liquid-island rounded-[28px] p-6">
-        <p className="text-center text-sm text-muted">Loading your group…</p>
+        <p className="text-center text-sm text-muted">Loading your archive…</p>
       </section>
     );
   }
@@ -153,11 +153,11 @@ export function GroupPanel() {
       {editingGroup && activeGroup ? (
         <div className="space-y-5">
           <form onSubmit={handleUpdateGroup} className="space-y-3">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Edit group</p>
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Edit archive</p>
             <input
               value={editName}
               onChange={(event) => setEditName(event.target.value)}
-              placeholder="Group name"
+              placeholder="Archive name"
               className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
             />
             <input
@@ -173,7 +173,7 @@ export function GroupPanel() {
                 className="tap-scale flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
               >
                 <Check aria-hidden="true" size={17} />
-                {editBusy ? "Saving…" : "Save group"}
+                {editBusy ? "Saving…" : "Save archive"}
               </button>
               <button
                 type="button"
@@ -215,7 +215,7 @@ export function GroupPanel() {
                         "tap-scale inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition",
                         confirmRemoveId === member.userId ? "bg-ink text-white" : "text-muted hover:text-ink"
                       )}
-                      aria-label={isSelf ? "Leave group" : `Remove ${member.name}`}
+                      aria-label={isSelf ? "Leave archive" : `Remove ${member.name}`}
                     >
                       <UserMinus aria-hidden="true" size={14} />
                       {confirmRemoveId === member.userId ? (isSelf ? "Leave?" : "Remove?") : isSelf ? "Leave" : "Remove"}
@@ -230,7 +230,7 @@ export function GroupPanel() {
           {groupIsFull ? (
             <p className="flex items-center gap-2 text-sm text-muted">
               <Users aria-hidden="true" size={15} />
-              This group already has {MAX_MEMBERS_PER_GROUP} members.
+              This archive already has {MAX_MEMBERS_PER_GROUP} members.
             </p>
           ) : (
             <div className="space-y-2">
@@ -271,8 +271,8 @@ export function GroupPanel() {
         <>
           <header className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Current group</p>
-              <h2 className="font-serif text-3xl italic leading-tight text-ink">{activeGroup?.name ?? "No group yet"}</h2>
+              <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Current archive</p>
+              <h2 className="font-serif text-3xl italic leading-tight text-ink">{activeGroup?.name ?? "No archive yet"}</h2>
               {activeGroup?.description ? <p className="text-sm leading-6 text-muted">{activeGroup.description}</p> : null}
             </div>
             {activeGroup ? (
@@ -280,7 +280,7 @@ export function GroupPanel() {
                 type="button"
                 onClick={startEditGroup}
                 className="tap-scale inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface-warm px-3 py-2 text-xs font-semibold text-ink"
-                aria-label="Edit group"
+                aria-label="Edit archive"
               >
                 <Pencil aria-hidden="true" size={14} />
                 Edit
@@ -321,7 +321,7 @@ export function GroupPanel() {
 
       {groups.length > 1 ? (
         <div className="space-y-2">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Switch group</p>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Switch archive</p>
           <div className="flex flex-wrap gap-2">
             {groups.map((group) => (
               <button
@@ -342,16 +342,16 @@ export function GroupPanel() {
         </div>
       ) : null}
 
-      {/* ---- Create a group ---- */}
+      {/* ---- Create an archive ---- */}
       <div className="space-y-3 border-t border-border pt-5">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Create a group</p>
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Create an archive</p>
         {canCreateGroup ? (
           showCreate ? (
             <form onSubmit={handleCreate} className="space-y-3">
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Group name (e.g. Dinner Club)"
+                placeholder="Archive name (e.g. Dinner Club)"
                 className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
               />
               <input
@@ -367,7 +367,7 @@ export function GroupPanel() {
                   className="tap-scale flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
                 >
                   <Check aria-hidden="true" size={17} />
-                  {busy ? "Creating…" : "Create group"}
+                  {busy ? "Creating…" : "Create archive"}
                 </button>
                 <button
                   type="button"
@@ -388,13 +388,13 @@ export function GroupPanel() {
               className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
             >
               <Plus aria-hidden="true" size={17} />
-              Create a group
+              Create an archive
             </button>
           )
         ) : (
           <p className="flex items-center gap-2 text-sm text-muted">
             <Users aria-hidden="true" size={15} />
-            You can only join up to {MAX_GROUPS_PER_USER} groups for now.
+            You can only have up to {MAX_GROUPS_PER_USER} archives for now.
           </p>
         )}
         {error ? <p className="text-sm leading-6 text-accent">{error}</p> : null}

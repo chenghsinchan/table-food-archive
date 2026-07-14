@@ -25,7 +25,7 @@ export function NeedInvitation({ email }: NeedInvitationProps) {
         </div>
         <h1 className="mt-5 font-serif text-3xl italic leading-tight text-ink">You need an invitation</h1>
         <p className="mt-3 text-sm leading-6 text-muted">
-          TABLE is private. Ask a member to invite{email ? ` ${email}` : " you"} to their group, then sign in again.
+          TABLE is private. Ask a member to invite{email ? ` ${email}` : " you"} to their archive, then sign in again.
         </p>
         <button
           type="button"

@@ -118,7 +118,7 @@ export function NotificationSettings() {
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Notifications</p>
         <h2 className="font-serif text-2xl italic leading-tight text-ink">Get a ping for new cards</h2>
         <p className="text-sm leading-6 text-muted">
-          Receive a phone notification when someone in your group adds a new food card.
+          Receive a phone notification when someone in your archive adds a new food card.
         </p>
       </div>
 

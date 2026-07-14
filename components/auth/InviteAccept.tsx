@@ -75,7 +75,7 @@ export function InviteAccept({ invites }: InviteAcceptProps) {
         <div className="space-y-4">
           {invites.map((invite) => (
             <div key={invite.id} className="space-y-3 rounded-[20px] border border-border bg-white p-4">
-              <p className="text-base font-semibold text-ink">Join {invite.groupName || "a TABLE group"}</p>
+              <p className="text-base font-semibold text-ink">Join {invite.groupName || "a TABLE archive"}</p>
               <div className="flex gap-2">
                 <button
                   type="button"

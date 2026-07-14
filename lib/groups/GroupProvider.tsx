@@ -55,6 +55,16 @@ function storeActiveGroup(groupId: string | null) {
   }
 }
 
+async function buildPersonalArchiveName(
+  supabase: NonNullable<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string> {
+  const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
+  const name = (data?.display_name as string | undefined)?.trim();
+
+  return name ? `${name}'s Archive` : "My Archive";
+}
+
 export function GroupProvider({ children }: { children: React.ReactNode }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
@@ -82,15 +92,41 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
 
     setUserId(user.id);
 
-    const nextGroups = await getUserGroups(supabase, user.id);
-    setGroups(nextGroups);
+    let nextGroups = await getUserGroups(supabase, user.id);
 
+    // A signed-in user with zero archives (e.g. accepted an app invite but was
+    // never added to anyone's archive) has nowhere to save a new dish — every
+    // insert is rejected by row-level security. Give them a personal archive
+    // automatically so they can start using TABLE right away.
     if (!nextGroups.length) {
-      setActiveGroupId(null);
-      setMembers([]);
-      setStatus("no-group");
-      return;
+      try {
+        const archiveName = await buildPersonalArchiveName(supabase, user.id);
+        const newGroupId = await createGroupInSupabase(supabase, user.id, archiveName);
+        nextGroups = await getUserGroups(supabase, user.id);
+
+        setGroups(nextGroups);
+        setActiveGroupId(newGroupId);
+        storeActiveGroup(newGroupId);
+        setStatus("ready");
+
+        try {
+          await persistActiveGroupId(supabase, user.id, newGroupId);
+          setMembers(await getGroupMembers(supabase, newGroupId));
+        } catch {
+          setMembers([]);
+        }
+
+        return;
+      } catch {
+        setGroups([]);
+        setActiveGroupId(null);
+        setMembers([]);
+        setStatus("no-group");
+        return;
+      }
     }
+
+    setGroups(nextGroups);
 
     const stored = readStoredActiveGroup();
     const savedOnProfile = await getActiveGroupId(supabase, user.id);
@@ -141,11 +177,11 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       const supabase = createClient();
 
       if (!supabase || !userId) {
-        throw new Error("You need to be signed in to create a group.");
+        throw new Error("You need to be signed in to create an archive.");
       }
 
       if (groups.length >= MAX_GROUPS_PER_USER) {
-        throw new Error(`You can only join up to ${MAX_GROUPS_PER_USER} groups for now.`);
+        throw new Error(`You can only have up to ${MAX_GROUPS_PER_USER} archives for now.`);
       }
 
       const newGroupId = await createGroupInSupabase(supabase, userId, name, description);
@@ -191,7 +227,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       const supabase = createClient();
 
       if (!supabase || !activeGroupId) {
-        throw new Error("No active group to edit.");
+        throw new Error("No active archive to edit.");
       }
 
       await updateGroupInSupabase(supabase, activeGroupId, name, description);
@@ -205,7 +241,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       const supabase = createClient();
 
       if (!supabase || !activeGroupId) {
-        throw new Error("No active group to add members to.");
+        throw new Error("No active archive to add members to.");
       }
 
       await addMemberByEmailInSupabase(supabase, activeGroupId, email);

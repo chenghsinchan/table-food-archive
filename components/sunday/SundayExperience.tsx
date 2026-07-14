@@ -600,7 +600,7 @@ export function SundayExperience() {
 
       {groupStatus === "no-group" ? (
         <p className="rounded-lg border border-border bg-white/72 p-6 text-center text-sm leading-6 text-muted">
-          Join or create a group first — the weekly plan is shared with your group.
+          Join or create an archive first — the weekly plan is shared with your archive.
         </p>
       ) : view === "month" ? (
         /* ============================ MONTH VIEW ============================ */

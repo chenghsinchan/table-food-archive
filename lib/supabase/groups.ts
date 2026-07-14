@@ -157,9 +157,9 @@ export async function createGroup(
     .insert({ group_id: groupId, user_id: userId, role: "owner" });
 
   if (memberError) {
-    // Roll back the empty group so we never leave an orphan the user can't see.
+    // Roll back the empty archive so we never leave an orphan the user can't see.
     await supabase.from("groups").delete().eq("id", groupId);
-    throw new Error(memberError.message || "Could not create the group.");
+    throw new Error(memberError.message || "Could not create the archive.");
   }
 
   return groupId;
@@ -187,7 +187,7 @@ export async function addMemberByEmail(supabase: SupabaseClient, groupId: string
   }
 
   if ((await getGroupMemberCount(supabase, groupId)) >= MAX_MEMBERS_PER_GROUP) {
-    throw new Error("This group already has 4 members.");
+    throw new Error("This archive already has 4 members.");
   }
 
   const { error } = await supabase
@@ -196,7 +196,7 @@ export async function addMemberByEmail(supabase: SupabaseClient, groupId: string
 
   if (error) {
     if (error.code === "23505") {
-      throw new Error("They are already in this group.");
+      throw new Error("They are already in this archive.");
     }
 
     // Surfaces the database limit messages (e.g. their 3-group limit).
@@ -227,7 +227,7 @@ export async function updateGroup(
   const trimmed = name.trim();
 
   if (!trimmed) {
-    throw new Error("Give the group a name.");
+    throw new Error("Give the archive a name.");
   }
 
   const { error } = await supabase
@@ -236,7 +236,7 @@ export async function updateGroup(
     .eq("id", groupId);
 
   if (error) {
-    throw new Error(error.message || "Could not update the group.");
+    throw new Error(error.message || "Could not update the archive.");
   }
 }
 
@@ -284,10 +284,10 @@ export async function createInvite(
   }
 
   if ((await getGroupMemberCount(supabase, groupId)) >= MAX_MEMBERS_PER_GROUP) {
-    throw new Error("This group already has 4 members.");
+    throw new Error("This archive already has 4 members.");
   }
 
-  // Reuse an existing invite for this email + group instead of duplicating.
+  // Reuse an existing invite for this email + archive instead of duplicating.
   const { data: existing } = await supabase
     .from("group_invites")
     .select("id, token, status")
@@ -359,7 +359,7 @@ export async function acceptInvite(
 
   if (joinError && joinError.code !== "23505") {
     // Surface the friendly limit messages raised by the database triggers.
-    throw new Error(joinError.message || "Could not join this group.");
+    throw new Error(joinError.message || "Could not join this archive.");
   }
 
   await supabase

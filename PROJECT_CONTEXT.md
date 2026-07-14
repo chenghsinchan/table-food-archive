@@ -42,14 +42,17 @@ Note: the LOVE tab is served by the component named `RecipesExperience` (an earl
 - AI ingredient detection: in a card's edit mode, "Detect from photo" sends the card's photo to Google's Gemini 2.5 Flash-Lite (`app/api/ingredients/route.ts`, server-side only) which returns ingredient lines appended to the box for review before saving. Needs `GEMINI_API_KEY` (from https://aistudio.google.com/apikey) as a server-only env var in Vercel; without it the button shows a friendly "not set up yet" message. The key is never exposed to the browser or committed.
 - Plans are stored in `meal_plan_items` (see `supabase/sunday-meal-plan.sql`), scoped to the active group with row-level security. Each row has `meal_slot` ('breakfast' | 'lunch' | 'dinner').
 
-## How Invites & Groups Work (accounts)
+## How Invites & Archives Work (accounts)
+
+Note: "Group" was renamed to "Archive" in all user-facing text (2026-07-13). The underlying code, tables, and hooks (`groups`, `group_members`, `GroupProvider`, `useGroups`, etc.) keep their original internal names — only what the user sees changed.
 
 - Two kinds of invites:
-  - **App invites** (`app_invites` table, UI in Profile → "Invite friends to TABLE"): invite a friend to TABLE itself by email; share the generated `/join/<token>` link. The friend signs in with Google using that email and can use the app — **without joining any group**. Each user can send up to 3 app invites; chenghsinchan@gmail.com is exempt (unlimited) via a database trigger.
-  - **Group membership**: a group member opens Profile → group → **Edit** and adds a member by email (the person must already have a TABLE account) or removes members. Invited-but-ungrouped friends do not appear anywhere in the panel until added to a group.
-- Limits: max **3 groups per user**, groups are **1–4 people** — enforced both in the UI and by database triggers.
-- Access rule (AuthGate): allowed emails OR group members OR anyone with an app invite get in; everyone else sees the "You need an invitation" screen.
-- SQL for all of this: `supabase/app-invites.sql` (also raises the group limit to 3 and lets members remove other members).
+  - **App invites** (`app_invites` table, UI in Profile → "Invite friends to TABLE"): invite a friend to TABLE itself by email; share the generated `/join/<token>` link. The friend signs in with Google using that email and can use the app. Each user can send up to 3 app invites; chenghsinchan@gmail.com is exempt (unlimited) via a database trigger.
+  - **Archive membership**: an archive member opens Profile → archive → **Edit** and adds a member by email (the person must already have a TABLE account) or removes members.
+- **Every signed-in user always has an archive to save into.** If someone reaches the app with zero archives (e.g. accepted an app invite but was never added to anyone's archive), `GroupProvider` auto-creates a personal archive for them on load (named "{their name}'s Archive", or "My Archive" as a fallback) and makes it active — see "Fixed: new users couldn't add a food card" below.
+- Limits: max **3 archives per user**, archives are **1–4 people** — enforced both in the UI and by database triggers.
+- Access rule (AuthGate): allowed emails OR archive members OR anyone with an app invite get in; everyone else sees the "You need an invitation" screen.
+- SQL for all of this: `supabase/app-invites.sql` (also raises the archive limit to 3 and lets members remove other members).
 
 ## Paper "human touch" texture
 
@@ -71,19 +74,19 @@ Note: the LOVE tab is served by the component named `RecipesExperience` (an earl
 - Ways to close: the X button (top right), tapping the dimmed backdrop, the Esc key, or **swiping up past the end of the card** ("pull up past the end" — scroll normally, and once you reach the bottom keep swiping up to dismiss; short cards close on any firm upward swipe). Trackpad/mouse: scroll past the bottom.
 - The swipe-to-close gesture is intentionally disabled while editing, typing, or interacting with buttons/inputs/links.
 
-## Group Sharing (small private groups)
+## Archive Sharing (small private archives)
 
-TABLE supports small private groups so the archive can be shared with a few friends.
+TABLE supports small private archives (called "groups" internally in code/DB) so a food archive can be shared with a few friends.
 
-- **Limits:** each user can be in at most 2 groups; each group at most 4 members (enforced by database triggers and in the UI).
-- **Privacy:** Row Level Security restricts every food entry, photo, and entry-tag to members of the entry's group. A `food_entries.group_id` column ties each entry to a group, and a `is_group_member()` helper backs the policies. The old anonymous/public read access was removed — login is required.
-- **Default group:** all original Cheng + Saulė content lives in the "Cheng + Saulė Home" group. The two allowed emails are auto-enrolled into it via a trigger on profile creation.
-- **Active group:** the `GroupProvider` ([lib/groups/GroupProvider.tsx](lib/groups/GroupProvider.tsx)) tracks which group is active (remembered on `profiles.active_group_id` + localStorage). HOME / TONIGHT / LOVE and new-entry saves are all scoped to the active group via the group-aware entry cache.
-- **Login gate:** [AuthGate](components/auth/AuthGate.tsx) admits the allowed emails OR any group member; people with a pending invite see an accept screen; everyone else sees a "need invitation" screen.
-- **Group panel:** on the profile screen ([GroupPanel](components/profile/GroupPanel.tsx)) — current group, members, switch group, create group, and invite by email.
+- **Limits:** each user can be in at most 3 archives; each archive at most 4 members (enforced by database triggers and in the UI).
+- **Privacy:** Row Level Security restricts every food entry, photo, and entry-tag to members of the entry's archive. A `food_entries.group_id` column ties each entry to an archive, and a `is_group_member()` helper backs the policies. The old anonymous/public read access was removed — login is required.
+- **Default archive:** all original Cheng + Saulė content lives in the "Cheng + Saulė Home" archive. The two allowed emails are auto-enrolled into it via a trigger on profile creation. Everyone else gets a personal archive auto-created on first load (see the bug fix note below).
+- **Active archive:** the `GroupProvider` ([lib/groups/GroupProvider.tsx](lib/groups/GroupProvider.tsx)) tracks which archive is active (remembered on `profiles.active_group_id` + localStorage). HOME / TONIGHT / LOVE and new-entry saves are all scoped to the active archive via the archive-aware entry cache.
+- **Login gate:** [AuthGate](components/auth/AuthGate.tsx) admits the allowed emails OR any archive member OR anyone with an app invite; people with a pending archive invite see an accept screen; everyone else sees a "need invitation" screen.
+- **Archive panel:** on the profile screen ([GroupPanel](components/profile/GroupPanel.tsx)) — current archive, members, switch archive, create archive, and add member by email.
 - **Invites (V1 = link, no email provider):** a member creates an invite, which produces a copyable link (`/invite/<token>`) to send manually. The recipient logs in with that Google email and accepts. Real email sending (e.g. Resend + a Supabase Edge Function) can be added later without rework.
 - **SQL files:** `supabase/groups-migration.sql` (tables, backfill, RLS) and `supabase/groups-phase2.sql` (auto-enroll trigger), both already applied.
-- **Known limitation:** photo *files* sit in a public storage bucket, so a raw image URL is still viewable without login. The database (titles, notes, group membership) is fully private. Locking image files behind signed URLs is a possible future phase.
+- **Known limitation:** photo *files* sit in a public storage bucket, so a raw image URL is still viewable without login. The database (titles, notes, archive membership) is fully private. Locking image files behind signed URLs is a possible future phase.
 
 ## Supabase Setup
 
@@ -138,6 +141,11 @@ For Vercel, connect the GitHub repo and add the three frontend-safe environment 
 - PWA manifest and install assets exist.
 
 ## Known Bugs & Fixes
+
+### Fixed: new users couldn't add a food card (2026-07-13)
+- Symptom: a newly invited user could sign in and reach HOME, but saving a new food card silently failed.
+- Root cause: a user who accepted an app invite (see "How Invites & Archives Work") but was never added to anyone's archive had `activeGroupId = null`. The save code sent `group_id: null`, and the archive-scoped row-level-security insert policy (`is_group_member(group_id, auth.uid())`) can never be true when `group_id` is `null` — Postgres NULL never equals anything — so every insert was rejected.
+- Fix: `GroupProvider` ([lib/groups/GroupProvider.tsx](lib/groups/GroupProvider.tsx)) now auto-creates a personal archive (named after the user's display name, or "My Archive") for any signed-in user who has zero archives, and makes it active immediately. Every user always has somewhere to save, whether or not anyone has added them to a shared archive yet. No SQL migration needed — the existing archive-creation policies already allow any authenticated user to create one.
 
 ### Fixed: TONIGHT "Couldn't save this to LOVE" (2026-06-17)
 - Symptom: swiping a TONIGHT card right showed "Could not save this to LOVE."
