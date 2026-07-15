@@ -10,6 +10,7 @@ import { ProfileSetup } from "@/components/auth/ProfileSetup";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { isAllowedEmail } from "@/lib/auth/allowed";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics/track";
 import { acceptAppInvite, getAppInviteForEmail } from "@/lib/supabase/app-invites";
 import { getMembershipCount, getPendingInvitesForEmail } from "@/lib/supabase/groups";
 
@@ -99,6 +100,7 @@ export function AuthGate({ children }: AuthGateProps) {
           return;
         }
 
+        trackEvent("app_opened");
         setState({ status: "ready" });
       } catch {
         // Never leave the user stuck on a spinner if a lookup fails.

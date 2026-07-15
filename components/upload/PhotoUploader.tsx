@@ -2,21 +2,25 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Camera, ImagePlus, Trash2, Upload } from "lucide-react";
+import type { PhotoSource } from "@/types/analytics";
 
 type PhotoUploaderProps = {
   onFilesChange?: (files: File[]) => void;
+  /** Where the most recently added photo(s) came from — for analytics only. */
+  onSourceChange?: (source: PhotoSource) => void;
 };
 
-export function PhotoUploader({ onFilesChange }: PhotoUploaderProps) {
+export function PhotoUploader({ onFilesChange, onSourceChange }: PhotoUploaderProps) {
   const [files, setFiles] = useState<File[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const previews = useMemo(() => files.map((file) => ({ file, url: URL.createObjectURL(file) })), [files]);
 
-  function addFiles(nextFiles: FileList | File[]) {
+  function addFiles(nextFiles: FileList | File[], source: PhotoSource) {
     const merged = [...files, ...Array.from(nextFiles).filter((file) => file.type.startsWith("image/"))];
     setFiles(merged);
     onFilesChange?.(merged);
+    onSourceChange?.(source);
   }
 
   function removeFile(file: File) {
@@ -30,7 +34,7 @@ export function PhotoUploader({ onFilesChange }: PhotoUploaderProps) {
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
-        addFiles(event.dataTransfer.files);
+        addFiles(event.dataTransfer.files, "drop");
       }}
       className="rounded-lg border border-dashed border-border bg-white/72 p-3"
     >
@@ -82,8 +86,8 @@ export function PhotoUploader({ onFilesChange }: PhotoUploaderProps) {
           Camera
         </button>
       </div>
-      <input ref={inputRef} className="sr-only" type="file" accept="image/*" multiple onChange={(event) => event.target.files && addFiles(event.target.files)} />
-      <input ref={cameraRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event) => event.target.files && addFiles(event.target.files)} />
+      <input ref={inputRef} className="sr-only" type="file" accept="image/*" multiple onChange={(event) => event.target.files && addFiles(event.target.files, "library")} />
+      <input ref={cameraRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event) => event.target.files && addFiles(event.target.files, "camera")} />
     </section>
   );
 }

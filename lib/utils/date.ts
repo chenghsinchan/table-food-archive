@@ -26,3 +26,18 @@ export function daysSince(date: string) {
   const now = Date.now();
   return Math.floor((now - then) / 86_400_000);
 }
+
+/** "Just now" / "12m ago" / "3h ago" / "5d ago" for a full ISO timestamp. */
+export function formatRelativeTime(isoTimestamp: string) {
+  const elapsedMs = Date.now() - new Date(isoTimestamp).getTime();
+  const minutes = Math.floor(elapsedMs / 60_000);
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}

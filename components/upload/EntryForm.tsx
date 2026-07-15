@@ -9,10 +9,12 @@ import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { useGroups } from "@/lib/groups/GroupProvider";
 import { useSavedTags } from "@/lib/hooks/useSavedTags";
+import { trackEvent } from "@/lib/analytics/track";
 import { canonicalTagKey, commonTags, uniqueTagNames } from "@/lib/tags";
 import { TagPill } from "@/components/ui/TagPill";
 import { PhotoUploader } from "@/components/upload/PhotoUploader";
 import type { EntryType, FoodEntry, FoodPhoto } from "@/types/food";
+import type { PhotoSource } from "@/types/analytics";
 
 const entryTypes: EntryType[] = ["home", "restaurant", "travel", "recipe"];
 
@@ -35,6 +37,7 @@ export function EntryForm({ entries }: EntryFormProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [photoSource, setPhotoSource] = useState<PhotoSource>("library");
   const [status, setStatus] = useState<"idle" | "saving" | "detecting" | "saved">("idle");
   const [error, setError] = useState("");
   const savingRef = useRef(false);
@@ -151,6 +154,12 @@ export function EntryForm({ entries }: EntryFormProps) {
       // successful create (never on edit, love, tag, or delete).
       notifyGroupOfNewEntry(entry.id);
 
+      trackEvent("dish_added", { groupId: entry.groupId, dishId: entry.id, source: photoSource });
+
+      if (wantToRecreate) {
+        trackEvent("dish_marked_recreate", { dishId: entry.id, groupId: entry.groupId });
+      }
+
       window.location.replace(returnTo === "/" ? `/entry/${entry.id}` : returnTo);
     } catch (caught) {
       await cleanupUploadedPhotos(uploadedPhotos);
@@ -163,7 +172,7 @@ export function EntryForm({ entries }: EntryFormProps) {
 
   return (
     <form className="space-y-5" onSubmit={saveEntry}>
-      <PhotoUploader onFilesChange={setFiles} />
+      <PhotoUploader onFilesChange={setFiles} onSourceChange={setPhotoSource} />
 
       <section className="rounded-lg bg-white/72 p-4 shadow-sm sm:p-5">
         <div className="grid gap-4">

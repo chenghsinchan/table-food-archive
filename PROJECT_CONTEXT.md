@@ -31,6 +31,15 @@ Other routes exist for supporting flows such as adding/editing entries, login, p
 
 Note: the LOVE tab is served by the component named `RecipesExperience` (an earlier "Recipes" tab was renamed to "Love"). The route and label are LOVE; the component name is historical.
 
+## Analytics (founder-only, 2026-07-13)
+
+- Purpose-built, no third-party analytics SDK. One append-only table, `analytics_events` (`supabase/analytics-events.sql`), storing only `user_id`, `event_name`, a small `properties` jsonb (IDs/counts/enums only — never titles, notes, ingredients, photos, or locations), and `created_at`.
+- `lib/analytics/track.ts` exports `trackEvent(eventName, properties?)` — client-side, fully typed against `types/analytics.ts`'s `AnalyticsEventPropertiesMap`, attaches the signed-in user automatically, and fails completely silently (never throws, never blocks a save).
+- Tracked events: `app_opened` (AuthGate, once per session-ready), `dish_added`/`dish_marked_recreate` (EntryForm, on successful create), `dish_updated`/`dish_deleted` (FoodEntryModal), `meal_planned` (SundayExperience, on adding a dish to the plan), `shopping_list_generated` (SundayExperience, opening the shopping list), `invite_sent` (InviteFriends), `group_created` (GroupProvider — fires for both explicit "Create an archive" and the auto-created personal archive, tagged via a `source` property).
+- Query helpers live in `lib/supabase/analytics.ts` (`getTotalUsers`, `getDailyActiveUsers`, `getWeeklyActiveUsers`, `getTotalEventCount`, `getEventCountsByType`, `getEventCountsByDay`, `getRecentEvents`), same shape as `lib/supabase/groups.ts`/`meal-plan.ts`.
+- Dashboard: `/admin/analytics` (`app/admin/analytics/page.tsx`), an async server component that redirects to `/` unless the signed-in user's email matches `OWNER_EMAIL`. No chart library — day/type bars are plain divs. A quiet "Analytics" link appears on the profile page only for the owner (`components/profile/AdminLink.tsx`).
+- Privacy boundary is enforced twice: the page redirects non-owners server-side, and the database itself only lets `is_app_owner()` (a SECURITY DEFINER SQL function checking the JWT email, same pattern as `is_group_member`) SELECT from `analytics_events` — everyone else may only INSERT their own rows.
+
 ## How SUNDAY (weekly meal plan) Works
 
 - `components/sunday/SundayExperience.tsx` shows a Monday-to-Sunday week; arrows move between weeks, "Today" jumps back.

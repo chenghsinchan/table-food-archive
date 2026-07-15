@@ -18,6 +18,7 @@ import { ProfileButton } from "@/components/profile/ProfileButton";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { useGroups } from "@/lib/groups/GroupProvider";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics/track";
 import {
   addMealPlanItem,
   copyMealPlanItems,
@@ -248,6 +249,7 @@ export function SundayExperience() {
           createdBy: user?.id ?? null
         });
         setItems((current) => [...current, item]);
+        trackEvent("meal_planned", { groupId: activeGroupId, dishId: entry.id, mealSlot: slot, dayOfWeek: day });
       } else {
         setItems((current) => [
           ...current,
@@ -501,6 +503,22 @@ export function SundayExperience() {
       mealsWithoutIngredients
     };
   }, [items, entriesById]);
+
+  function toggleShoppingList() {
+    setShowShoppingList((current) => {
+      const next = !current;
+
+      if (next) {
+        trackEvent("shopping_list_generated", {
+          groupId: activeGroupId ?? undefined,
+          mealCount: shoppingList.mealsCounted,
+          ingredientCount: shoppingList.lines.length
+        });
+      }
+
+      return next;
+    });
+  }
 
   const showSkeleton = (loading && !items.length) || (entriesStatus !== "error" && !entries.length && entriesStatus !== "ready");
 
@@ -881,7 +899,7 @@ export function SundayExperience() {
         <section className="mt-6 rounded-[18px] border border-border bg-white/72 p-4">
           <button
             type="button"
-            onClick={() => setShowShoppingList((current) => !current)}
+            onClick={toggleShoppingList}
             className="flex w-full items-center justify-between gap-3"
           >
             <span className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-muted">

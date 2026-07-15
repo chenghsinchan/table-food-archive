@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Group, GroupMember } from "@/types/food";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics/track";
 import {
   addMemberByEmail as addMemberByEmailInSupabase,
   createGroup as createGroupInSupabase,
@@ -102,6 +103,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       try {
         const archiveName = await buildPersonalArchiveName(supabase, user.id);
         const newGroupId = await createGroupInSupabase(supabase, user.id, archiveName);
+        trackEvent("group_created", { groupId: newGroupId, source: "auto_personal" });
         nextGroups = await getUserGroups(supabase, user.id);
 
         setGroups(nextGroups);
@@ -185,6 +187,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       }
 
       const newGroupId = await createGroupInSupabase(supabase, userId, name, description);
+      trackEvent("group_created", { groupId: newGroupId, source: "manual" });
 
       await loadGroups();
 

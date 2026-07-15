@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { NotificationSettings } from "@/components/notifications/NotificationSettings";
+import { AdminLink } from "@/components/profile/AdminLink";
 import { GroupPanel } from "@/components/profile/GroupPanel";
 import { InviteFriends } from "@/components/profile/InviteFriends";
 import { ProfileEditor } from "@/components/profile/ProfileEditor";
@@ -21,6 +22,7 @@ export default function ProfilePage() {
       <GroupPanel />
       <InviteFriends />
       <NotificationSettings />
+      <AdminLink />
     </div>
   );
 }

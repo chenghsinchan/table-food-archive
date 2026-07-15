@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { createAppInvite, getSentAppInvites, type AppInvite } from "@/lib/supabase/app-invites";
+import { trackEvent } from "@/lib/analytics/track";
 import { MAX_APP_INVITES, OWNER_EMAIL } from "@/lib/groups/constants";
 
 export function InviteFriends() {
@@ -83,6 +84,7 @@ export function InviteFriends() {
       );
       setInviteLink(`${window.location.origin}/join/${invite.token}`);
       setEmail("");
+      trackEvent("invite_sent");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not create the invite.");
     } finally {

@@ -7,6 +7,7 @@ import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
 import { TagPill } from "@/components/ui/TagPill";
 import { createClient } from "@/lib/supabase/client";
 import { useGroups } from "@/lib/groups/GroupProvider";
+import { trackEvent } from "@/lib/analytics/track";
 import { deleteEntryFromSupabase, saveEntryToSupabase } from "@/lib/supabase/save-entry";
 import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
 import { useSavedTags } from "@/lib/hooks/useSavedTags";
@@ -321,6 +322,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
       await saveEntryToSupabase(supabase, nextEntry);
       onUpdate?.(nextEntry);
       setIsEditing(false);
+      trackEvent("dish_updated", { dishId: entry.id, groupId: entry.groupId });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not update this food card.");
     } finally {
@@ -346,6 +348,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
 
       await deleteEntryFromSupabase(supabase, entry.id);
       onDelete?.(entry.id);
+      trackEvent("dish_deleted", { dishId: entry.id, groupId: entry.groupId });
       onClose();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not delete this food card.");
