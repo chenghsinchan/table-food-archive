@@ -542,15 +542,16 @@ export function SundayExperience() {
         </div>
       </header>
 
-      {/* Two folders, front and back: the active plan's tab connects to the
-          folder body below; the other sits tucked behind it. */}
-      <div className="flex items-end">
+      {/* Two folders at opposite corners of the same folder body: WEEK PLAN
+          sits exactly where HOME's month tab does; MONTH mirrors it on the
+          right. The active plan's tab connects; the other tucks behind. */}
+      <div className="flex items-end justify-between">
         <button
           type="button"
           onClick={() => setView("week")}
           aria-pressed={view === "week"}
           className={cn(
-            "archive-folder-tab ml-0 font-mono text-[11px] uppercase tracking-[0.2em] transition",
+            "archive-folder-tab font-mono text-[11px] uppercase tracking-[0.2em] transition",
             view === "week" ? "relative z-10 text-ink" : "relative z-0 translate-y-[5px] bg-[#e2ddd1] text-muted"
           )}
         >
@@ -564,7 +565,7 @@ export function SundayExperience() {
           }}
           aria-pressed={view === "month"}
           className={cn(
-            "archive-folder-tab -ml-[3px] font-mono text-[11px] uppercase tracking-[0.2em] transition",
+            "archive-folder-tab ml-0 mr-[0.85rem] font-mono text-[11px] uppercase tracking-[0.2em] transition",
             view === "month" ? "relative z-10 text-ink" : "relative z-0 translate-y-[5px] bg-[#e2ddd1] text-muted"
           )}
         >
