@@ -35,7 +35,7 @@ export function HomeGrid({ entries, onSelect }: HomeGridProps) {
                   {places.join(" · ")}
                 </p>
               ) : null}
-              <div className="flex flex-col gap-8">
+              <div className="grid grid-cols-2 gap-3">
                 {group.entries.map((entry, index) => (
                   <FoodCard
                     key={entry.id}

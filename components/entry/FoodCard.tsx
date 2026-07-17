@@ -25,9 +25,9 @@ export function FoodCard({ entry, number, onSelect }: FoodCardProps) {
   const place = shortPlace(entry);
 
   return (
-    <div className="mx-auto w-[290px]" style={{ perspective: "1400px" }}>
+    <div className="w-full" style={{ perspective: "1400px" }}>
       <div
-        className="relative h-[430px] w-full"
+        className="relative aspect-[29/43] w-full"
         style={{
           transformStyle: "preserve-3d",
           transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
@@ -39,7 +39,7 @@ export function FoodCard({ entry, number, onSelect }: FoodCardProps) {
           type="button"
           onClick={() => setFlipped(true)}
           aria-label={`Flip ${entry.title} to its index card`}
-          className="absolute inset-0 overflow-hidden rounded-[30px] bg-[#e2ddd2] text-left shadow-[0_16px_30px_-14px_rgba(26,24,23,0.30)] outline-none focus-visible:outline-none"
+          className="absolute inset-0 overflow-hidden rounded-[20px] bg-[#e2ddd2] text-left shadow-[0_10px_22px_-12px_rgba(26,24,23,0.30)] outline-none focus-visible:outline-none"
           style={{
             backfaceVisibility: "hidden",
             opacity: flipped ? 0 : 1,
@@ -50,7 +50,7 @@ export function FoodCard({ entry, number, onSelect }: FoodCardProps) {
             src={thumbnailSrc(photo)}
             alt={photo.alt}
             loading="lazy"
-            sizes="290px"
+            sizes="50vw"
             className="size-full object-cover"
             draggable={false}
           />
@@ -60,14 +60,14 @@ export function FoodCard({ entry, number, onSelect }: FoodCardProps) {
             style={{ background: "linear-gradient(to top, rgba(12,10,9,0.62) 0%, rgba(12,10,9,0.1) 42%, transparent 60%)" }}
           />
           {hasMood(entry) ? (
-            <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-[rgba(12,10,9,0.38)] px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-white backdrop-blur-[6px]">
-              <span className="size-2 rounded-full" style={{ background: mood.bg }} />
+            <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-[rgba(12,10,9,0.38)] px-2 py-0.5 font-mono text-[7.5px] uppercase tracking-[0.12em] text-white backdrop-blur-[6px]">
+              <span className="size-1.5 rounded-full" style={{ background: mood.bg }} />
               {mood.name}
             </span>
           ) : null}
-          <span className="absolute inset-x-[18px] bottom-4 block text-[#fbf9f4]">
-            <span className="block font-serif text-[27px] font-semibold italic leading-[1.05]">{entry.title}</span>
-            <span className="mt-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] opacity-80">
+          <span className="absolute inset-x-3 bottom-3 block text-[#fbf9f4]">
+            <span className="block font-serif text-[16px] font-semibold italic leading-[1.1]">{entry.title}</span>
+            <span className="mt-1 block truncate font-mono text-[7px] uppercase tracking-[0.12em] opacity-80">
               {shortDate(entry.entryDate)} &middot; {place}
             </span>
           </span>
@@ -82,7 +82,7 @@ export function FoodCard({ entry, number, onSelect }: FoodCardProps) {
             if (event.key === "Enter" || event.key === " ") setFlipped(false);
           }}
           aria-label={`Flip ${entry.title} back to its photo`}
-          className="absolute inset-0 flex cursor-pointer flex-col rounded-[30px] p-[22px] shadow-[0_16px_30px_-14px_rgba(26,24,23,0.30)]"
+          className="absolute inset-0 flex cursor-pointer flex-col rounded-[20px] p-3.5 shadow-[0_10px_22px_-12px_rgba(26,24,23,0.30)]"
           style={{
             background: mood.bg,
             color: mood.fg,
@@ -92,26 +92,26 @@ export function FoodCard({ entry, number, onSelect }: FoodCardProps) {
             transition: "opacity 0s .31s"
           }}
         >
-          <div className="flex items-baseline justify-between font-mono text-[9px] uppercase tracking-[0.18em] opacity-70">
+          <div className="flex items-baseline justify-between font-mono text-[7px] uppercase tracking-[0.14em] opacity-70">
             <span>&#8470; {String(number).padStart(2, "0")} &middot; {mood.name}</span>
             <span className="truncate pl-3">{place}</span>
           </div>
 
-          <p className="mt-[14px] font-serif text-[32px] font-semibold italic leading-[1.05]">{entry.title}</p>
+          <p className="mt-2 font-serif text-[17px] font-semibold italic leading-[1.1]">{entry.title}</p>
 
           {entry.notes ? (
-            <p className="mt-3 line-clamp-3 font-serif text-[16px] italic leading-[1.4] opacity-90">{entry.notes}</p>
+            <p className="mt-1.5 line-clamp-2 font-serif text-[11px] italic leading-[1.4] opacity-90">{entry.notes}</p>
           ) : null}
 
-          <div className="mt-[14px] font-mono text-[9.5px] uppercase tracking-[0.12em]">
+          <div className="mt-2 font-mono text-[7.5px] uppercase tracking-[0.1em]">
             <CardRow label="Date" value={shortDate(entry.entryDate)} />
             <CardRow label="Weather" value={entry.weather || "—"} />
-            <div className="flex items-center justify-between border-t border-current py-2">
+            <div className="flex items-center justify-between border-t border-current py-1.5">
               <span>Atmosphere</span>
               {entry.atmosphere ? (
-                <span className="relative inline-block size-[26px] rounded-[7px] bg-white/[0.28]" aria-label={atmosphereLabel(entry.atmosphere.x, entry.atmosphere.y)}>
+                <span className="relative inline-block size-5 rounded-[5px] bg-white/[0.28]" aria-label={atmosphereLabel(entry.atmosphere.x, entry.atmosphere.y)}>
                   <span
-                    className="absolute size-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-current"
+                    className="absolute size-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-current"
                     style={{ left: `${entry.atmosphere.x}%`, top: `${entry.atmosphere.y}%` }}
                   />
                 </span>
@@ -133,7 +133,7 @@ export function FoodCard({ entry, number, onSelect }: FoodCardProps) {
               event.stopPropagation();
               onSelect(entry);
             }}
-            className="tap-scale w-full rounded-full border border-current py-[9px] text-center font-mono text-[9px] uppercase tracking-[0.16em]"
+            className="tap-scale w-full rounded-full border border-current py-1.5 text-center font-mono text-[7.5px] uppercase tracking-[0.14em]"
           >
             See full entry &rarr;
           </button>
@@ -145,7 +145,7 @@ export function FoodCard({ entry, number, onSelect }: FoodCardProps) {
 
 function CardRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between border-t border-current py-2">
+    <div className="flex items-center justify-between border-t border-current py-1.5">
       <span>{label}</span>
       <span className="truncate pl-3 normal-case">{value}</span>
     </div>

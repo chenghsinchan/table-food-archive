@@ -14,7 +14,6 @@ import {
   X
 } from "lucide-react";
 import type { FoodEntry, MealPlanItem, MealSlot } from "@/types/food";
-import { ArchivePageTabs } from "@/components/navigation/ArchivePageTabs";
 import { ProfileButton } from "@/components/profile/ProfileButton";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { useGroups } from "@/lib/groups/GroupProvider";
@@ -542,8 +541,6 @@ export function SundayExperience() {
           <ProfileButton />
         </div>
       </header>
-
-      <ArchivePageTabs />
 
       <div className="flex items-end justify-between gap-3">
         <div className="archive-folder-tab">
