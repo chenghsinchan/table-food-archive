@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { AuthGate } from "@/components/auth/AuthGate";
 import { BottomNav } from "@/components/navigation/BottomNav";
+import { OnboardingHost } from "@/components/onboarding/OnboardingHost";
 import { LocalArchiveSync } from "@/components/sync/LocalArchiveSync";
 import { EntryCacheProvider } from "@/lib/entries/EntryCacheProvider";
 import { GroupProvider } from "@/lib/groups/GroupProvider";
@@ -25,6 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <main className={isLove ? "h-full overflow-hidden" : undefined}>{children}</main>
             <BottomNav />
           </div>
+          <OnboardingHost />
         </EntryCacheProvider>
       </GroupProvider>
     </AuthGate>
