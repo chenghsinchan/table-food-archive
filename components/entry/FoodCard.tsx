@@ -1,51 +1,165 @@
-import type { FoodEntry } from "@/types/food";
-import { cn } from "@/lib/utils/cn";
-import { entryTypeLabel } from "@/lib/utils/entries";
-import { thumbnailSrc } from "@/lib/utils/photos";
+"use client";
 
-const aspectByIndex = [
-  "aspect-[4/5]",
-  "aspect-square",
-  "aspect-[3/4]",
-  "aspect-[5/6]",
-  "aspect-[4/3]"
-];
+import { useState } from "react";
+import type { FoodEntry } from "@/types/food";
+import { atmosphereLabel, hasMood, moodFor } from "@/lib/moods";
+import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
+import { thumbnailSrc } from "@/lib/utils/photos";
 
 type FoodCardProps = {
   entry: FoodEntry;
-  index: number;
+  /** Frame number in the archive, newest first (drives "№ 07" on the back). */
+  number: number;
   onSelect: (entry: FoodEntry) => void;
 };
 
-export function FoodCard({ entry, index, onSelect }: FoodCardProps) {
+/**
+ * A printed memory: photo on the front, mood-coded index card on the back.
+ * Tap anywhere to flip; "See full entry" opens the overlay. 290x430 per the
+ * design handoff — sized for an iPhone feed, one receipt at a time.
+ */
+export function FoodCard({ entry, number, onSelect }: FoodCardProps) {
+  const [flipped, setFlipped] = useState(false);
+  const mood = moodFor(entry);
   const photo = entry.photos[0];
+  const place = shortPlace(entry);
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(entry)}
-      className="group mb-3 block w-full break-inside-avoid text-left outline-none focus:outline-none focus-visible:outline-none"
-    >
-      <article className="card-deckle relative overflow-hidden rounded-[14px]">
-        <img
-          src={thumbnailSrc(photo)}
-          alt={photo.alt}
-          loading="lazy"
-          sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
-          className={cn(
-            "w-full object-cover",
-            aspectByIndex[index % aspectByIndex.length]
-          )}
-        />
-        <span className="riso-grain" aria-hidden="true" />
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/68 via-black/18 to-transparent p-3 text-white">
-          <div className="space-y-1">
-            <h3 className="line-clamp-2 text-[15px] font-semibold leading-tight">{entry.title}</h3>
+    <div className="mx-auto w-[290px]" style={{ perspective: "1400px" }}>
+      <div
+        className="relative h-[430px] w-full"
+        style={{
+          transformStyle: "preserve-3d",
+          transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+          transition: "transform .62s cubic-bezier(.5,.05,.2,1)"
+        }}
+      >
+        {/* ---- front: the photograph ---- */}
+        <button
+          type="button"
+          onClick={() => setFlipped(true)}
+          aria-label={`Flip ${entry.title} to its index card`}
+          className="absolute inset-0 overflow-hidden rounded-[30px] bg-[#e2ddd2] text-left shadow-[0_16px_30px_-14px_rgba(26,24,23,0.30)] outline-none focus-visible:outline-none"
+          style={{
+            backfaceVisibility: "hidden",
+            opacity: flipped ? 0 : 1,
+            transition: "opacity 0s .31s"
+          }}
+        >
+          <img
+            src={thumbnailSrc(photo)}
+            alt={photo.alt}
+            loading="lazy"
+            sizes="290px"
+            className="size-full object-cover"
+            draggable={false}
+          />
+          <span className="archive-riso" aria-hidden="true" />
+          <span
+            className="pointer-events-none absolute inset-0"
+            style={{ background: "linear-gradient(to top, rgba(12,10,9,0.62) 0%, rgba(12,10,9,0.1) 42%, transparent 60%)" }}
+          />
+          {hasMood(entry) ? (
+            <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-[rgba(12,10,9,0.38)] px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-white backdrop-blur-[6px]">
+              <span className="size-2 rounded-full" style={{ background: mood.bg }} />
+              {mood.name}
+            </span>
+          ) : null}
+          <span className="absolute inset-x-[18px] bottom-4 block text-[#fbf9f4]">
+            <span className="block font-serif text-[27px] font-semibold italic leading-[1.05]">{entry.title}</span>
+            <span className="mt-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] opacity-80">
+              {shortDate(entry.entryDate)} &middot; {place}
+            </span>
+          </span>
+        </button>
+
+        {/* ---- back: the mood index card ---- */}
+        <div
+          role="button"
+          tabIndex={flipped ? 0 : -1}
+          onClick={() => setFlipped(false)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") setFlipped(false);
+          }}
+          aria-label={`Flip ${entry.title} back to its photo`}
+          className="absolute inset-0 flex cursor-pointer flex-col rounded-[30px] p-[22px] shadow-[0_16px_30px_-14px_rgba(26,24,23,0.30)]"
+          style={{
+            background: mood.bg,
+            color: mood.fg,
+            transform: "rotateY(180deg)",
+            backfaceVisibility: "hidden",
+            opacity: flipped ? 1 : 0,
+            transition: "opacity 0s .31s"
+          }}
+        >
+          <div className="flex items-baseline justify-between font-mono text-[9px] uppercase tracking-[0.18em] opacity-70">
+            <span>&#8470; {String(number).padStart(2, "0")} &middot; {mood.name}</span>
+            <span className="truncate pl-3">{place}</span>
           </div>
+
+          <p className="mt-[14px] font-serif text-[32px] font-semibold italic leading-[1.05]">{entry.title}</p>
+
+          {entry.notes ? (
+            <p className="mt-3 line-clamp-3 font-serif text-[16px] italic leading-[1.4] opacity-90">{entry.notes}</p>
+          ) : null}
+
+          <div className="mt-[14px] font-mono text-[9.5px] uppercase tracking-[0.12em]">
+            <CardRow label="Date" value={shortDate(entry.entryDate)} />
+            <CardRow label="Weather" value={entry.weather || "—"} />
+            <div className="flex items-center justify-between border-t border-current py-2">
+              <span>Atmosphere</span>
+              {entry.atmosphere ? (
+                <span className="relative inline-block size-[26px] rounded-[7px] bg-white/[0.28]" aria-label={atmosphereLabel(entry.atmosphere.x, entry.atmosphere.y)}>
+                  <span
+                    className="absolute size-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-current"
+                    style={{ left: `${entry.atmosphere.x}%`, top: `${entry.atmosphere.y}%` }}
+                  />
+                </span>
+              ) : (
+                <span>—</span>
+              )}
+            </div>
+            <CardRow
+              label="Made"
+              value={entry.dish?.timesMade ? `${entry.dish.timesMade}×` : "1×"}
+            />
+          </div>
+
+          <span className="flex-1" />
+
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect(entry);
+            }}
+            className="tap-scale w-full rounded-full border border-current py-[9px] text-center font-mono text-[9px] uppercase tracking-[0.16em]"
+          >
+            See full entry &rarr;
+          </button>
         </div>
-      </article>
-    </button>
+      </div>
+    </div>
   );
+}
+
+function CardRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between border-t border-current py-2">
+      <span>{label}</span>
+      <span className="truncate pl-3 normal-case">{value}</span>
+    </div>
+  );
+}
+
+function shortPlace(entry: FoodEntry) {
+  if (entry.placeLabel) return entry.placeLabel;
+  if (entry.type === "home") return entry.city ? `Home, ${entry.city}` : "At home";
+  return entryLocation(entry);
+}
+
+function shortDate(date: string) {
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(new Date(`${date}T12:00:00`));
 }
 
 export function foodCardType(entry: FoodEntry) {

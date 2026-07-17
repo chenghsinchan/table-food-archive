@@ -1,54 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { Circle, Sun } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
-
-// TONIGHT and LOVE are hidden from the nav for now (pages still exist).
-const items = [
-  { href: "/", label: "Home", icon: Circle },
-  { href: "/sunday", label: "Sunday", icon: Sun }
-];
 
 export function BottomNav() {
   const pathname = usePathname();
-  const [activeHref, setActiveHref] = useState(pathname);
 
-  useEffect(() => {
-    setActiveHref(pathname);
-  }, [pathname]);
+  if (pathname !== "/" && !pathname.startsWith("/sunday")) {
+    return null;
+  }
+
+  const returnTo = pathname.startsWith("/sunday") ? "/sunday" : "/";
 
   return (
     <nav
-      aria-label="Main navigation"
-      className="liquid-island fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex w-auto max-w-[calc(100%_-_2rem)] -translate-x-1/2 items-center justify-center gap-1 rounded-[34px] p-2"
+      aria-label="Add a food memory"
+      className="fixed bottom-[max(.8rem,env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2"
     >
-      {items.map((item) => {
-        const Icon = item.icon;
-        const active =
-          activeHref === item.href ||
-          (item.href !== "/" && activeHref.startsWith(item.href));
-
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            prefetch
-            title={item.label}
-            aria-label={item.label}
-            onClick={() => setActiveHref(item.href)}
-            className={cn(
-              "tap-scale relative z-10 flex items-center justify-center rounded-full p-3 text-muted transition",
-              active && "bg-ink/[0.07] text-ink"
-            )}
-            aria-current={active ? "page" : undefined}
-          >
-            <Icon aria-hidden="true" size={20} strokeWidth={1.7} fill={active ? "currentColor" : "none"} />
-          </Link>
-        );
-      })}
+      <Link
+        href={`/add?returnTo=${encodeURIComponent(returnTo)}`}
+        prefetch
+        title="Add"
+        aria-label="Add a food memory"
+        className="tap-scale grid size-12 place-items-center rounded-full border border-white/90 bg-black text-white shadow-[0_10px_28px_rgba(26,24,23,0.2)]"
+      >
+        <Plus aria-hidden="true" size={22} strokeWidth={1.7} />
+      </Link>
     </nav>
   );
 }

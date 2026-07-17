@@ -5,13 +5,14 @@
 @tailwind utilities;
 
 :root {
-  --background: 246 241 232;
+  /* Contact-sheet palette: bone ground, deep ink, graphite, one riso-blue accent. */
+  --background: 241 238 231;
   --surface: 255 255 255;
-  --surface-warm: 240 235 226;
-  --ink: 17 17 17;
-  --muted: 120 113 108;
-  --border: 226 220 209;
-  --accent: 17 17 17;
+  --surface-warm: 233 229 219;
+  --ink: 26 24 23;
+  --muted: 138 131 120;
+  --border: 220 215 204;
+  --accent: 26 24 23;
   color-scheme: light;
 }
 
@@ -39,22 +40,22 @@ body {
   letter-spacing: 0;
 }
 
-/* warm paper grain across the whole canvas — a fine, even tooth */
+/* Barely-there archival tooth: photographs remain the visual texture. */
 body::before {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   content: "";
-  opacity: 0.55;
+  opacity: 0.18;
   mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.075'/%3E%3C/svg%3E");
   background-size: 180px 180px;
 }
 
-/* hand-cut deckle edge — a gentle wobble, like torn paper */
+/* Legacy classes stay harmless while older hidden screens are phased over. */
 .card-deckle {
-  filter: url(#tableDeckle);
+  filter: none;
 }
 
 /* riso-print grain over a photo so tiles feel printed, not pixel-crisp */
@@ -63,7 +64,7 @@ body::before {
   inset: 0;
   pointer-events: none;
   mix-blend-mode: multiply;
-  opacity: 0.4;
+  opacity: 0;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='r'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23r)' opacity='0.55'/%3E%3C/svg%3E");
   background-size: 120px 120px;
 }
@@ -161,6 +162,139 @@ img {
     transform: scale(0.98);
   }
 
+  .entry-input {
+    min-height: 3rem;
+    width: 100%;
+    border: 1px solid rgb(var(--border));
+    border-radius: 0.7rem;
+    background: white;
+    padding-inline: 0.85rem;
+    color: rgb(var(--ink));
+    outline: none;
+  }
+
+  .entry-input:focus {
+    border-color: rgb(var(--ink));
+  }
+
+  .memory-sheet {
+    animation: memory-sheet-up 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .archive-page-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+    margin-bottom: 0.85rem;
+    padding-inline: 0.4rem;
+    border-bottom: 1px solid rgb(var(--border));
+  }
+
+  .archive-page-tab {
+    position: relative;
+    display: grid;
+    min-height: 2.75rem;
+    margin-bottom: -1px;
+    place-items: center;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: 14px 14px 0 0;
+    color: rgb(var(--muted));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  .archive-page-tab.is-active {
+    z-index: 1;
+    border-color: rgb(var(--border));
+    background: rgb(var(--surface-warm));
+    color: rgb(var(--ink));
+    box-shadow: 0 -4px 16px rgba(26, 24, 23, 0.025);
+  }
+
+  .archive-page-tab.is-active::after {
+    position: absolute;
+    right: 0.7rem;
+    bottom: 0.55rem;
+    width: 1.2rem;
+    height: 1px;
+    content: "";
+    background: rgb(var(--ink));
+  }
+
+  .archive-folder-tab {
+    position: relative;
+    z-index: 1;
+    width: fit-content;
+    min-width: 9.5rem;
+    margin-left: 0.5rem;
+    padding: 0.65rem 1.25rem 0.55rem 0.9rem;
+    border: 1px solid rgb(var(--border));
+    border-bottom: 0;
+    border-radius: 13px 13px 0 0;
+    background: rgb(var(--surface-warm));
+  }
+
+  .archive-folder-tab::after {
+    position: absolute;
+    right: -1.2rem;
+    bottom: -1px;
+    width: 1.35rem;
+    height: 1.6rem;
+    content: "";
+    background: rgb(var(--surface-warm));
+    clip-path: polygon(0 0, 100% 100%, 0 100%);
+    border-bottom: 1px solid rgb(var(--border));
+  }
+
+  .archive-folder {
+    position: relative;
+    margin-top: -1px;
+    padding: 0.65rem;
+    border: 1px solid rgb(var(--border));
+    border-radius: 15px;
+    background: rgb(var(--surface-warm));
+    box-shadow: 0 8px 24px rgba(26, 24, 23, 0.045);
+  }
+
+  .sunday-planner {
+    display: block;
+    margin-top: -1px;
+    padding: 0.75rem;
+    border: 1px solid rgb(var(--border));
+    border-radius: 15px;
+    background: rgb(var(--surface-warm));
+    box-shadow: 0 8px 24px rgba(26, 24, 23, 0.045);
+  }
+
+  .archive-riso {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.18;
+    mix-blend-mode: multiply;
+    background-image:
+      radial-gradient(circle at center, rgba(20, 17, 15, 0.22) 0 0.55px, transparent 0.7px),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='r'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.78' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23r)' opacity='.4'/%3E%3C/svg%3E");
+    background-size: 3px 3px, 96px 96px;
+  }
+
+  .atmosphere-field::before {
+    position: absolute;
+    inset: 8px;
+    z-index: 0;
+    pointer-events: none;
+    content: "";
+    opacity: 0.55;
+    background:
+      repeating-linear-gradient(to right, rgb(var(--muted)) 0 1px, transparent 1px 10px) top / 100% 4px no-repeat,
+      repeating-linear-gradient(to right, rgb(var(--muted)) 0 1px, transparent 1px 10px) bottom / 100% 4px no-repeat,
+      repeating-linear-gradient(to bottom, rgb(var(--muted)) 0 1px, transparent 1px 10px) left / 4px 100% no-repeat,
+      repeating-linear-gradient(to bottom, rgb(var(--muted)) 0 1px, transparent 1px 10px) right / 4px 100% no-repeat;
+  }
+
   .pattern-hatch {
     background-image: repeating-linear-gradient(
       135deg,
@@ -193,6 +327,11 @@ img {
       transparent 12px
     );
   }
+}
+
+@keyframes memory-sheet-up {
+  from { opacity: 0; transform: translateY(26px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes soft-fade {

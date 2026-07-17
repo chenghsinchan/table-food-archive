@@ -1,4 +1,4 @@
-import type { FoodEntry, FoodPhoto } from "@/types/food";
+import type { Dish, FoodEntry, FoodPhoto } from "@/types/food";
 import { seedEntries } from "@/lib/seed-data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -27,6 +27,16 @@ type EntryRow = {
   city: string | null;
   country: string | null;
   entry_date: string;
+  entry_time?: string | null;
+  daypart?: FoodEntry["daypart"] | null;
+  temperature_c?: number | null;
+  weather?: string | null;
+  atmosphere_x?: number | null;
+  atmosphere_y?: number | null;
+  mood?: FoodEntry["mood"] | null;
+  effort?: FoodEntry["effort"] | null;
+  place_label?: string | null;
+  dish_id?: string | null;
   want_to_recreate?: boolean | null;
   is_loved?: boolean | null;
   ingredients?: string | null;
@@ -36,6 +46,16 @@ type EntryRow = {
   created_at?: string | null;
   photos: PhotoRow[] | null;
   food_entry_tags: TagRelationRow[] | null;
+};
+
+type DishRow = {
+  id: string;
+  name: string;
+  ingredients: string | null;
+  method: string | null;
+  effort: Dish["effort"] | null;
+  cook_time_minutes: number | null;
+  tags: string[] | null;
 };
 
 type ProfileRow = {
@@ -57,7 +77,11 @@ function initialsFor(name: string) {
   );
 }
 
-function transformEntry(row: EntryRow, profiles: Map<string, ProfileRow> = new Map()): FoodEntry {
+function transformEntry(
+  row: EntryRow,
+  profiles: Map<string, ProfileRow> = new Map(),
+  dishes: Map<string, Dish> = new Map()
+): FoodEntry {
   const photos: FoodPhoto[] = (row.photos ?? []).map((photo) => ({
     id: photo.id,
     imageUrl: photo.image_url,
@@ -78,6 +102,18 @@ function transformEntry(row: EntryRow, profiles: Map<string, ProfileRow> = new M
     city: row.city ?? undefined,
     country: row.country ?? undefined,
     entryDate: row.entry_date,
+    entryTime: row.entry_time ?? undefined,
+    daypart: row.daypart ?? undefined,
+    temperatureC: row.temperature_c ?? undefined,
+    weather: row.weather ?? undefined,
+    atmosphere: row.atmosphere_x != null && row.atmosphere_y != null
+      ? { x: row.atmosphere_x, y: row.atmosphere_y }
+      : undefined,
+    mood: row.mood ?? undefined,
+    effort: row.effort ?? undefined,
+    placeLabel: row.place_label ?? undefined,
+    dishId: row.dish_id ?? undefined,
+    dish: row.dish_id ? dishes.get(row.dish_id) : undefined,
     wantToRecreate: row.want_to_recreate ?? false,
     isLoved: (row.is_loved ?? false) || (row.food_entry_tags ?? []).some((relation) => relation.tags?.name === "Love"),
     ingredients: row.ingredients ?? undefined,
@@ -107,6 +143,33 @@ function transformEntry(row: EntryRow, profiles: Map<string, ProfileRow> = new M
             }
           ]
   };
+}
+
+async function getDishesForEntries(
+  supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
+  rows: EntryRow[]
+) {
+  const ids = Array.from(new Set(rows.map((row) => row.dish_id).filter(Boolean))) as string[];
+  if (!ids.length) return new Map<string, Dish>();
+
+  const { data, error } = await supabase
+    .from("dishes")
+    .select("id,name,ingredients,method,effort,cook_time_minutes,tags")
+    .in("id", ids);
+
+  if (error) return new Map<string, Dish>();
+
+  const dishes = (data as DishRow[]).map((row): Dish => ({
+    id: row.id,
+    name: row.name,
+    ingredients: row.ingredients ?? undefined,
+    method: row.method ?? undefined,
+    effort: row.effort ?? undefined,
+    timeMinutes: row.cook_time_minutes ?? undefined,
+    tags: row.tags ?? [],
+    timesMade: rows.filter((entry) => entry.dish_id === row.id).length
+  }));
+  return new Map(dishes.map((dish) => [dish.id, dish]));
 }
 
 async function getProfilesForEntries(
@@ -155,8 +218,9 @@ export async function getFoodEntries(groupId?: string) {
   }
 
   const profiles = await getProfilesForEntries(supabase, rows);
+  const dishes = await getDishesForEntries(supabase, rows);
 
-  return dedupeEntryRows(rows).map((row) => transformEntry(row, profiles));
+  return dedupeEntryRows(rows).map((row) => transformEntry(row, profiles, dishes));
 }
 
 export async function getFoodEntryById(id: string) {
@@ -179,8 +243,9 @@ export async function getFoodEntryById(id: string) {
 
   const row = data as EntryRow;
   const profiles = await getProfilesForEntries(supabase, [row]);
+  const dishes = await getDishesForEntries(supabase, [row]);
 
-  return transformEntry(row, profiles);
+  return transformEntry(row, profiles, dishes);
 }
 
 function dedupeEntryRows(rows: EntryRow[]) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Camera, ImagePlus, Trash2, Upload } from "lucide-react";
+import { Camera, ImagePlus, Trash2 } from "lucide-react";
 import type { PhotoSource } from "@/types/analytics";
 
 type PhotoUploaderProps = {
@@ -36,13 +36,13 @@ export function PhotoUploader({ onFilesChange, onSourceChange }: PhotoUploaderPr
         event.preventDefault();
         addFiles(event.dataTransfer.files, "drop");
       }}
-      className="rounded-lg border border-dashed border-border bg-white/72 p-3"
+      className="rounded-[22px] border border-border bg-[#fbf9f4] p-[3px]"
     >
-      <div className="grid min-h-72 place-items-center rounded-lg bg-surface-warm/72 p-4 text-center">
+      <div className="grid min-h-72 place-items-center overflow-hidden rounded-[18px] bg-surface-warm/45 p-3 text-center">
         {previews.length ? (
           <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3">
             {previews.map(({ file, url }) => (
-              <div key={`${file.name}-${file.lastModified}`} className="group relative overflow-hidden rounded-lg">
+              <div key={`${file.name}-${file.lastModified}`} className="group relative overflow-hidden">
                 <img src={url} alt={file.name} className="aspect-[4/5] w-full object-cover" />
                 <button
                   type="button"
@@ -57,12 +57,12 @@ export function PhotoUploader({ onFilesChange, onSourceChange }: PhotoUploaderPr
           </div>
         ) : (
           <div className="max-w-xs space-y-3">
-            <div className="mx-auto grid size-14 place-items-center rounded-full bg-white text-accent shadow-sm">
+            <div className="mx-auto grid size-14 place-items-center rounded-full border border-border bg-[#fbf9f4] text-ink">
               <ImagePlus aria-hidden="true" size={27} strokeWidth={1.8} />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-semibold">Photos</h2>
-              <p className="text-sm leading-6 text-muted">Add at least one.</p>
+              <h2 className="font-serif text-2xl italic">Choose the photograph</h2>
+              <p className="text-sm leading-6 text-muted">The image is the entry. Everything else can wait.</p>
             </div>
           </div>
         )}
@@ -74,7 +74,7 @@ export function PhotoUploader({ onFilesChange, onSourceChange }: PhotoUploaderPr
           onClick={() => inputRef.current?.click()}
           className="tap-scale flex min-h-12 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-white"
         >
-          <Upload aria-hidden="true" size={17} />
+          <ImagePlus aria-hidden="true" size={17} />
           Library
         </button>
         <button

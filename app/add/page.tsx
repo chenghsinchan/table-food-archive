@@ -14,11 +14,11 @@ export default async function AddEntryPage() {
   const entries = await getFoodEntries();
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 px-4 pb-10 pt-1 sm:px-6">
-      <header className="space-y-3 pt-2">
-        <p className="text-xs font-semibold uppercase text-muted">NEW</p>
-        <h1 className="text-4xl font-semibold leading-tight text-ink sm:text-6xl">
-          Add it while it is warm
+    <div className="mx-auto w-full max-w-2xl space-y-6 px-4 pb-10 pt-1 sm:px-6">
+      <header className="space-y-2 border-b border-border pb-5 pt-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">New entry</p>
+        <h1 className="font-serif text-4xl italic leading-tight text-ink sm:text-5xl">
+          Keep the moment.
         </h1>
       </header>
       <Suspense>

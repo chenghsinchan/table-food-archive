@@ -1,470 +1,241 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Check, Save } from "lucide-react";
+import { Check, ChevronDown, LoaderCircle } from "lucide-react";
+import type { Atmosphere, EntryType, FoodEntry, FoodPhoto, MoodKey } from "@/types/food";
+import type { PhotoSource } from "@/types/analytics";
+import { AtmosphereField } from "@/components/entry/AtmosphereField";
+import { MOODS, moodByKey } from "@/lib/moods";
+import { PhotoUploader } from "@/components/upload/PhotoUploader";
 import { createClient } from "@/lib/supabase/client";
-import { createEntryInSupabase } from "@/lib/supabase/save-entry";
+import { createEntryInSupabase, saveEntryToSupabase } from "@/lib/supabase/save-entry";
 import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { useGroups } from "@/lib/groups/GroupProvider";
-import { useSavedTags } from "@/lib/hooks/useSavedTags";
 import { trackEvent } from "@/lib/analytics/track";
-import { canonicalTagKey, commonTags, uniqueTagNames } from "@/lib/tags";
-import { TagPill } from "@/components/ui/TagPill";
-import { PhotoUploader } from "@/components/upload/PhotoUploader";
-import type { EntryType, FoodEntry, FoodPhoto } from "@/types/food";
-import type { PhotoSource } from "@/types/analytics";
 
-const entryTypes: EntryType[] = ["home", "restaurant", "travel", "recipe"];
+type EntryFormProps = { entries: FoodEntry[] };
 
-type EntryFormProps = {
-  entries: FoodEntry[];
-};
-
-type RankedTag = {
-  name: string;
-  count: number;
-};
-
-export function EntryForm({ entries }: EntryFormProps) {
+export function EntryForm({}: EntryFormProps) {
   const searchParams = useSearchParams();
   const { upsertEntry } = useFoodEntries();
   const { activeGroupId } = useGroups();
-  const [tagSourceEntries, setTagSourceEntries] = useState(entries);
-  const [type, setType] = useState<EntryType>("home");
-  const [wantToRecreate, setWantToRecreate] = useState(false);
-  const [tags, setTags] = useState<string[]>([]);
-  const [customTag, setCustomTag] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [photoSource, setPhotoSource] = useState<PhotoSource>("library");
-  const [status, setStatus] = useState<"idle" | "saving" | "detecting" | "saved">("idle");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedEntry, setSavedEntry] = useState<FoodEntry | null>(null);
+  const [atmosphere, setAtmosphere] = useState<Atmosphere>();
+  const [moodKey, setMoodKey] = useState<MoodKey | undefined>();
+  const [fragment, setFragment] = useState("");
   const [error, setError] = useState("");
   const savingRef = useRef(false);
   const returnTo = safeReturnPath(searchParams.get("returnTo"));
-  const savedTags = useSavedTags(tags);
-  const isSaving = status === "saving" || status === "detecting";
 
-  useEffect(() => {
-    setTagSourceEntries(entries);
-  }, [entries]);
-
-  const suggestedTags = useMemo(() => rankTags(tagSourceEntries, tags, savedTags), [tagSourceEntries, tags, savedTags]);
-
-  function toggleTag(tag: string) {
-    const key = canonicalTagKey(tag);
-    setTags((current) => current.some((item) => canonicalTagKey(item) === key)
-      ? current.filter((item) => canonicalTagKey(item) !== key)
-      : uniqueTagNames([...current, tag]));
-  }
-
-  function addCustomTag() {
-    const tag = customTag.trim();
-
-    if (!tag) {
-      return;
-    }
-
-    setTags((current) => {
-      return uniqueTagNames([...current, tag]);
-    });
-    setCustomTag("");
-  }
-
-  function handleCustomTagKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key !== "Enter") {
-      return;
-    }
-
+  async function capture(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    addCustomTag();
-  }
-
-  async function saveEntry(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-
-    if (savingRef.current) {
+    if (savingRef.current) return;
+    if (!files.length) {
+      setError("Choose a photograph first.");
       return;
     }
 
     const form = new FormData(event.currentTarget);
-    const title = String(form.get("title") || "").trim();
+    const now = new Date();
+    const entryId = crypto.randomUUID();
+    const title = String(form.get("title") || "").trim() || defaultTitle(now);
+    const type = (String(form.get("type") || "home") as EntryType);
+    let photos: FoodPhoto[] = [];
 
-    if (!title) {
-      setError("Add a title before saving.");
-      return;
-    }
-
-    if (!files.length) {
-      setError("Add at least one photo before saving.");
-      return;
-    }
-
-    setStatus("saving");
     savingRef.current = true;
-    let uploadedPhotos: FoodPhoto[] = [];
+    setSaving(true);
+    setError("");
 
     try {
-      const entryId = crypto.randomUUID();
       const supabase = createClient();
+      if (!supabase) throw new Error("Supabase is not connected. Shared archive saves need Supabase.");
+      const { data: { user } } = await supabase.auth.getUser();
+      const uploaded = await uploadFoodPhotos({ supabase, entryId, files });
+      photos = uploaded.map((upload, index) => photoFromUpload({ entryId, title, upload, index }));
 
-      if (!supabase) {
-        throw new Error("Supabase is not connected. Shared archive saves need Supabase.");
-      }
-
-      const {
-        data: { user }
-      } = await supabase.auth.getUser();
-      uploadedPhotos = await uploadEntryPhotos({ supabase, entryId, files, title });
-      const entry = buildLocalEntry({ id: entryId, form, title, type, wantToRecreate, tags, photos: uploadedPhotos, groupId: activeGroupId ?? undefined });
+      const entry: FoodEntry = {
+        id: entryId,
+        title,
+        type,
+        notes: undefined,
+        recipe: text(form, "method"),
+        ingredients: text(form, "ingredients"),
+        restaurantName: text(form, "restaurant"),
+        city: text(form, "city"),
+        country: text(form, "country"),
+        placeLabel: text(form, "place"),
+        entryDate: text(form, "date") || now.toISOString().slice(0, 10),
+        entryTime: now.toTimeString().slice(0, 8),
+        daypart: daypartFor(now.getHours()),
+        wantToRecreate: Boolean(form.get("recreate")),
+        groupId: activeGroupId ?? undefined,
+        createdById: user?.id,
+        tags: [],
+        photos
+      };
 
       await createEntryInSupabase(supabase, entry, { createdById: user?.id ?? null });
-
-      let finalEntry = { ...entry, createdById: user?.id ?? undefined };
-
-      // "Want to recreate" means they'll cook it again — auto-read the
-      // ingredients from the photo (unless they already typed some).
-      // Failures are silent: ingredients can always be added by hand later.
-      if (wantToRecreate && !entry.ingredients && uploadedPhotos[0]?.imageUrl) {
-        setStatus("detecting");
-
-        try {
-          const response = await fetch("/api/ingredients", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageUrl: uploadedPhotos[0].imageUrl })
-          });
-          const data = (await response.json()) as { ingredients?: string };
-
-          if (response.ok && data.ingredients) {
-            await supabase.from("food_entries").update({ ingredients: data.ingredients }).eq("id", entry.id);
-            finalEntry = { ...finalEntry, ingredients: data.ingredients };
-          }
-        } catch {
-          // ignore — the card is already saved
-        }
-      }
-
-      upsertEntry(finalEntry);
-      setStatus("saved");
-
-      // Notify the other group members that a new card was added. Fire-and-forget
-      // with keepalive so it survives the navigation below; only runs on a
-      // successful create (never on edit, love, tag, or delete).
-      notifyGroupOfNewEntry(entry.id);
-
+      upsertEntry(entry);
+      setSavedEntry(entry);
       trackEvent("dish_added", { groupId: entry.groupId, dishId: entry.id, source: photoSource });
-
-      if (wantToRecreate) {
-        trackEvent("dish_marked_recreate", { dishId: entry.id, groupId: entry.groupId });
-      }
-
-      window.location.replace(returnTo === "/" ? `/entry/${entry.id}` : returnTo);
+      void notifyGroupOfNewEntry(entry.id);
     } catch (caught) {
-      await cleanupUploadedPhotos(uploadedPhotos);
-      setStatus("idle");
-      setError(caught instanceof Error ? caught.message : "Something went wrong while saving this memory.");
+      if (photos.length) await cleanupUploadedPhotos(photos);
+      setError(caught instanceof Error ? caught.message : "Could not save this memory.");
     } finally {
       savingRef.current = false;
+      setSaving(false);
     }
   }
 
-  return (
-    <form className="space-y-5" onSubmit={saveEntry}>
-      <PhotoUploader onFilesChange={setFiles} onSourceChange={setPhotoSource} />
+  async function finish() {
+    if (!savedEntry) return;
+    setSaving(true);
+    setError("");
+    try {
+      const next = { ...savedEntry, atmosphere, mood: moodKey, notes: fragment.trim() || undefined };
+      const supabase = createClient();
+      if (!supabase) throw new Error("Supabase is not connected.");
+      await saveEntryToSupabase(supabase, next);
+      upsertEntry(next);
+      window.location.replace(returnTo);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The memory is saved, but the atmosphere could not be added.");
+      setSaving(false);
+    }
+  }
 
-      <section className="rounded-lg bg-white/72 p-4 shadow-sm sm:p-5">
-        <div className="grid gap-4">
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-muted">Title</span>
-            <input
-              required
-              name="title"
-              placeholder="Olive Oil Squid"
-              className="min-h-14 rounded-lg border border-border bg-white px-4 text-lg outline-none transition focus:border-accent"
-            />
-          </label>
-
-          <div className="grid gap-2">
-            <span className="text-sm font-medium text-muted">Type</span>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {entryTypes.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setType(item)}
-                  className={`tap-scale min-h-12 rounded-full px-3 text-sm font-semibold capitalize ${
-                    type === item ? "bg-ink text-white" : "bg-surface-warm text-ink"
-                  }`}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-muted">Notes</span>
-            <textarea
-              name="notes"
-              rows={4}
-              placeholder="Small details worth remembering."
-              className="rounded-lg border border-border bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-accent"
-            />
-          </label>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-muted">Restaurant name</span>
-              <input name="restaurant" className="min-h-12 rounded-lg border border-border bg-white px-4 outline-none transition focus:border-accent" />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-muted">Date</span>
-              <input name="date" type="date" className="min-h-12 rounded-lg border border-border bg-white px-4 outline-none transition focus:border-accent" />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-muted">City</span>
-              <input name="city" className="min-h-12 rounded-lg border border-border bg-white px-4 outline-none transition focus:border-accent" />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-muted">Country</span>
-              <input name="country" className="min-h-12 rounded-lg border border-border bg-white px-4 outline-none transition focus:border-accent" />
-            </label>
-          </div>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-muted">Recipe</span>
-            <textarea
-              name="recipe"
-              rows={5}
-              placeholder="Loose method or a link."
-              className="rounded-lg border border-border bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-accent"
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-muted">Ingredients</span>
-            <textarea
-              name="ingredients"
-              rows={4}
-              placeholder={"One per line — feeds the SUNDAY shopping list.\n300g squid\n2 lemons"}
-              className="rounded-lg border border-border bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-accent"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-warm/72 p-3">
-            <span className="text-sm font-medium text-ink">Want to recreate</span>
-            <input
-              type="checkbox"
-              checked={wantToRecreate}
-              onChange={(event) => setWantToRecreate(event.target.checked)}
-              className="sr-only"
-            />
-            <span
-              aria-hidden="true"
-              className={`grid size-8 place-items-center rounded-full transition ${
-                wantToRecreate ? "bg-ink text-white" : "bg-white text-transparent"
-              }`}
-            >
-              <Check size={16} strokeWidth={2.1} />
-            </span>
-          </label>
-
-          <div className="grid gap-3">
-            <span className="text-sm font-medium text-muted">Tags</span>
-            <div className="flex flex-wrap gap-2">
-              {suggestedTags.map((tag) => (
-                <TagPill key={tag.name} active={tags.some((selected) => canonicalTagKey(selected) === canonicalTagKey(tag.name))} onClick={() => toggleTag(tag.name)}>
-                  {tag.name}
-                </TagPill>
-              ))}
-              {tags.filter((tag) => !suggestedTags.some((item) => canonicalTagKey(item.name) === canonicalTagKey(tag))).map((tag) => (
-                <TagPill key={tag} active onClick={() => toggleTag(tag)}>
-                  {tag}
-                </TagPill>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={customTag}
-                onChange={(event) => setCustomTag(event.target.value)}
-                onKeyDown={handleCustomTagKeyDown}
-                placeholder="Add your own tag"
-                className="min-h-12 flex-1 rounded-lg border border-border bg-white px-4 outline-none transition focus:border-accent"
-              />
+  if (savedEntry) {
+    return (
+      <section className="mx-auto max-w-lg space-y-7 pb-8">
+        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
+          <span className="grid size-5 place-items-center rounded-full bg-ink text-white"><Check size={12} /></span>
+          Saved
+        </div>
+        <div>
+          <h2 className="font-serif text-4xl italic leading-tight text-ink">How was the atmosphere?</h2>
+          <p className="mt-2 text-sm text-muted">One touch. Skip whenever you like.</p>
+        </div>
+        <div>
+          <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.16em] text-muted">Mood · optional</p>
+          <div className="flex items-center gap-3">
+            {MOODS.map((option) => (
               <button
+                key={option.key}
                 type="button"
-                onClick={addCustomTag}
-                className="tap-scale min-h-12 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
-              >
-                Add
-              </button>
-            </div>
+                onClick={() => setMoodKey((current) => (current === option.key ? undefined : option.key))}
+                aria-label={`Mood: ${option.name}`}
+                aria-pressed={moodKey === option.key}
+                className="size-[26px] rounded-full"
+                style={{
+                  background: option.bg,
+                  boxShadow: moodKey === option.key ? "0 0 0 3px #f1eee7, 0 0 0 5px #1a1817" : undefined
+                }}
+              />
+            ))}
           </div>
         </div>
+        <AtmosphereField value={atmosphere} onChange={setAtmosphere} mood={moodKey ? moodByKey(moodKey) : undefined} />
+        <label className="block rounded-[16px] border border-border bg-[#fbf9f4] p-4">
+          <span className="font-serif text-lg italic text-muted">Anything worth keeping?</span>
+          <textarea value={fragment} onChange={(event) => setFragment(event.target.value)} rows={3} className="mt-2 w-full resize-none bg-transparent text-base leading-7 outline-none" placeholder="Leave a fragment…" />
+        </label>
+        <div className="flex items-center justify-between">
+          <button type="button" onClick={() => window.location.replace(returnTo)} className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Skip</button>
+          <button type="button" onClick={finish} disabled={saving} className="tap-scale rounded-full bg-ink px-7 py-3 text-sm font-semibold text-white disabled:opacity-60">
+            {saving ? "Saving…" : "Done"}
+          </button>
+        </div>
+        {error ? <p className="text-sm text-red-700">{error}</p> : null}
       </section>
+    );
+  }
+
+  return (
+    <form className="space-y-5" onSubmit={capture}>
+      <PhotoUploader onFilesChange={setFiles} onSourceChange={setPhotoSource} />
 
       <button
-        type="submit"
-        disabled={isSaving}
-        className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+        type="button"
+        onClick={() => setMoreOpen((open) => !open)}
+        className="flex w-full items-center justify-between border-y border-border py-4 font-mono text-[10px] uppercase tracking-[0.18em] text-muted"
+        aria-expanded={moreOpen}
       >
-        <Save aria-hidden="true" size={18} />
-        {status === "saving"
-          ? "Saving..."
-          : status === "detecting"
-            ? "Reading ingredients..."
-            : status === "saved"
-              ? "Saved"
-              : "Save memory"}
+        More <ChevronDown size={16} className={moreOpen ? "rotate-180" : ""} />
       </button>
-      {error ? <p className="text-center text-sm leading-6 text-accent">{error}</p> : null}
+
+      {moreOpen ? (
+        <section className="grid gap-4 rounded-[22px] border border-border bg-surface-warm/80 p-4 sm:p-5">
+          <CaptureField label="Dish or memory name"><input name="title" placeholder="Optional" className="entry-input" /></CaptureField>
+          <div className="grid grid-cols-2 gap-3">
+            <CaptureField label="Kind">
+              <select name="type" defaultValue="home" className="entry-input"><option value="home">Home</option><option value="restaurant">Restaurant</option><option value="travel">Travel</option><option value="recipe">Recipe</option></select>
+            </CaptureField>
+            <CaptureField label="Date"><input name="date" type="date" className="entry-input" /></CaptureField>
+            <CaptureField label="Place"><input name="place" placeholder="At home · Angel" className="entry-input" /></CaptureField>
+            <CaptureField label="City"><input name="city" className="entry-input" /></CaptureField>
+            <CaptureField label="Restaurant"><input name="restaurant" className="entry-input" /></CaptureField>
+            <CaptureField label="Country"><input name="country" className="entry-input" /></CaptureField>
+          </div>
+          <CaptureField label="Ingredients"><textarea name="ingredients" rows={4} className="entry-input py-3" /></CaptureField>
+          <CaptureField label="How we made it"><textarea name="method" rows={5} className="entry-input py-3" /></CaptureField>
+          <label className="flex items-center justify-between py-2 text-sm text-ink">
+            Add this dish to SUNDAY
+            <input type="checkbox" name="recreate" className="size-5 accent-ink" />
+          </label>
+        </section>
+      ) : null}
+
+      <button type="submit" disabled={saving || !files.length} className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-base font-semibold text-white disabled:opacity-45">
+        {saving ? <LoaderCircle className="animate-spin" size={18} /> : null}
+        {saving ? "Saving this moment…" : "Save memory"}
+      </button>
+      <p className="text-center text-xs leading-5 text-muted">Only the photograph is required. Context can be added after it is safe.</p>
+      {error ? <p className="text-center text-sm text-red-700">{error}</p> : null}
     </form>
   );
 }
 
-function notifyGroupOfNewEntry(entryId: string) {
-  try {
-    void fetch("/api/notifications/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entryId }),
-      keepalive: true
-    }).catch(() => undefined);
-  } catch {
-    // Notifications are best-effort; never block or fail the save on them.
-  }
+function CaptureField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="grid gap-2"><span className="font-mono text-[9px] uppercase tracking-[0.15em] text-muted">{label}</span>{children}</label>;
+}
+
+function text(form: FormData, key: string) {
+  return String(form.get(key) || "").trim() || undefined;
+}
+
+function defaultTitle(date: Date) {
+  const part = daypartFor(date.getHours());
+  return `${part[0].toUpperCase()}${part.slice(1)} at the table`;
+}
+
+function daypartFor(hour: number): NonNullable<FoodEntry["daypart"]> {
+  if (hour < 11) return "morning";
+  if (hour < 17) return "afternoon";
+  if (hour < 22) return "evening";
+  return "night";
 }
 
 function safeReturnPath(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/";
-  }
-
-  if (value.startsWith("/add") || value.startsWith("/login")) {
-    return "/";
-  }
-
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/add") || value.startsWith("/login")) return "/";
   return value;
 }
 
-function rankTags(entries: FoodEntry[], selectedTags: string[], savedTags: string[]): RankedTag[] {
-  const counts = new Map<string, RankedTag>();
-  const preferredNames = new Map<string, string>();
-
-  for (const tag of [...commonTags, ...savedTags]) {
-    preferredNames.set(canonicalTagKey(tag), tag);
-  }
-
-  for (const entry of entries) {
-    for (const rawTag of entry.tags) {
-      const trimmedTag = rawTag.trim();
-
-      if (!trimmedTag) {
-        continue;
-      }
-
-      const key = canonicalTagKey(trimmedTag);
-      const name = preferredNames.get(key) ?? trimmedTag;
-      preferredNames.set(key, name);
-      counts.set(key, {
-        name,
-        count: (counts.get(key)?.count ?? 0) + 1
-      });
-    }
-  }
-
-  for (const tag of [...commonTags, ...savedTags, ...selectedTags]) {
-    const key = canonicalTagKey(tag);
-
-    if (!counts.has(key)) {
-      counts.set(key, {
-        name: preferredNames.get(key) ?? tag,
-        count: 0
-      });
-    }
-  }
-
-  return Array.from(counts.values()).sort((a, b) => {
-    const countDifference = b.count - a.count;
-
-    if (countDifference !== 0) {
-      return countDifference;
-    }
-
-    const fallbackIndexA = commonTags.findIndex((tag) => canonicalTagKey(tag) === canonicalTagKey(a.name));
-    const fallbackIndexB = commonTags.findIndex((tag) => canonicalTagKey(tag) === canonicalTagKey(b.name));
-
-    if (fallbackIndexA !== -1 || fallbackIndexB !== -1) {
-      return (fallbackIndexA === -1 ? Number.POSITIVE_INFINITY : fallbackIndexA) -
-        (fallbackIndexB === -1 ? Number.POSITIVE_INFINITY : fallbackIndexB);
-    }
-
-    return a.name.localeCompare(b.name);
-  });
-}
-
-function buildLocalEntry({
-  id,
-  form,
-  title,
-  type,
-  wantToRecreate,
-  tags,
-  photos,
-  groupId
-}: {
-  id: string;
-  form: FormData;
-  title: string;
-  type: EntryType;
-  wantToRecreate: boolean;
-  tags: string[];
-  photos: FoodPhoto[];
-  groupId?: string;
-}): FoodEntry {
-  return {
-    id,
-    title,
-    type,
-    notes: String(form.get("notes") || "").trim() || undefined,
-    recipe: String(form.get("recipe") || "").trim() || undefined,
-    ingredients: String(form.get("ingredients") || "").trim() || undefined,
-    restaurantName: String(form.get("restaurant") || "").trim() || undefined,
-    city: String(form.get("city") || "").trim() || undefined,
-    country: String(form.get("country") || "").trim() || undefined,
-    entryDate: String(form.get("date") || "").trim() || new Date().toISOString().slice(0, 10),
-    wantToRecreate,
-    groupId,
-    tags: uniqueTagNames(tags),
-    photos
-  };
-}
-
-async function uploadEntryPhotos({
-  supabase,
-  entryId,
-  files,
-  title
-}: {
-  supabase: NonNullable<ReturnType<typeof createClient>>;
-  entryId: string;
-  files: File[];
-  title: string;
-}): Promise<FoodPhoto[]> {
-  const uploadedPhotos = await uploadFoodPhotos({ supabase, entryId, files });
-
-  return uploadedPhotos.map((upload, index) => photoFromUpload({ entryId, title, upload, index }));
-}
-
 async function cleanupUploadedPhotos(photos: FoodPhoto[]) {
-  const storagePaths = photos.map((photo) => photo.storagePath).filter(Boolean) as string[];
+  const paths = photos.map((photo) => photo.storagePath).filter(Boolean) as string[];
+  if (paths.length) await createClient()?.storage.from("food-photos").remove(paths);
+}
 
-  if (!storagePaths.length) {
-    return;
+async function notifyGroupOfNewEntry(entryId: string) {
+  try {
+    await fetch("/api/notifications/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entryId }), keepalive: true });
+  } catch {
+    // Notifications are best effort and never block saving.
   }
-
-  const supabase = createClient();
-  await supabase?.storage.from("food-photos").remove(storagePaths);
 }

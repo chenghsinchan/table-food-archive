@@ -2,6 +2,15 @@
 
 TABLE is a private, image-first PWA food archive for saving home cooking, recipes, restaurant dishes, travel food, and food memories.
 
+## Memory-card redesign (2026-07-16, per the Claude Design handoff)
+
+- HOME is a feed of flip cards (290×430, radius 30), filed in month-labelled archive folders with running frame numbers. Front: full-bleed photo, mood pill, serif-italic name, mono `{date} · {place}` meta. Tap flips to a **mood-colored index-card back** (№ · mood / place header, name, note, stat rows Date/Weather/Atmosphere-swatch/Made, "See full entry →" pill).
+- **Mood palette** (`lib/moods.ts`, final per handoff): Cozy #FCC135 · Comfort #FF5846 · Fresh #005555 · Calm #4F77D6 · Sweet #FF92AE · Indulgent #003C1E. Color = feeling; the mood drives the card back plus every accent (Edit/Done/Save pills, effort segments, tag chips) while its entry is active. Entries without a mood fall back to a neutral card.
+- **Atmosphere stamp** is `{x, y}` 0–100 (x drained→energised, y vivid→soothing), clamped 4–96 in the picker, with a plain-language reading ("Energised · Vivid") via `atmosphereLabel`. Editable in the entry overlay; captured optionally on the post-save sheet in the add flow (alongside an optional mood row and memory fragment).
+- Full-entry overlay (`FoodEntryModal`): view = hero + mood pill, meta grid (Date/Place/Weather·auto), 180px mood-tinted atmosphere block, Optional words, then the dish record (effort, tag chips, mono ingredient rows, method) and mood-colored Edit entry/Done pills. Edit = mood swatches, name, place/city/weather, interactive atmosphere, rotating-prompt fragment + voice-note toggle (visual only), effort segmented, tags editing, ingredients + AI Detect-from-photo, method, photo management, delete (two-tap).
+- `types/food.ts` + Supabase mapping cover mood, atmosphere x/y, weather, place label, effort, daypart/temperature/entry-time context, and a linked reusable `Dish` (read-side; "Made N×").
+- Run **`supabase/memory-cards.sql`** once — it creates the `dishes` table, adds all entry columns above, and backfills/links existing entries. It supersedes the earlier `entry-dish-atmosphere.sql` draft and upgrades it in place if that was already run. The client stays compatible before the migration (saves silently drop the new columns).
+
 ## Current Tech Stack
 
 - Next.js 15
@@ -17,7 +26,7 @@ TABLE is a private, image-first PWA food archive for saving home cooking, recipe
 
 ## Main App Areas
 
-TABLE currently shows two bottom tabs (as of 2026-07-09):
+TABLE currently shows two top archive tabs:
 
 - HOME (`/`): the visual food archive
 - SUNDAY (`/sunday`): the shared weekly meal planner (week starts Monday)
@@ -63,10 +72,10 @@ Note: "Group" was renamed to "Archive" in all user-facing text (2026-07-13). The
 - Access rule (AuthGate): allowed emails OR archive members OR anyone with an app invite get in; everyone else sees the "You need an invitation" screen.
 - SQL for all of this: `supabase/app-invites.sql` (also raises the archive limit to 3 and lets members remove other members).
 
-## Paper "human touch" texture
+## Archival visual language
 
-- Warm cream canvas (`--background`) with a fine paper grain applied globally via `body::before` (inline feTurbulence, multiply blend). `app/globals.css`.
-- Food cards get hand-cut **deckle edges** via an SVG displacement filter (`#tableDeckle`, defined once in `app/layout.tsx`) applied with the `.card-deckle` class, plus a `.riso-grain` overlay so photos read as printed. The HOME grid uses larger gaps (`gap-3`, `mb-3`) so the wavy edges have room. Disabled under `prefers-reduced-motion`.
+- Bone canvas (`--background`) with an almost imperceptible neutral grain. Photographs provide the texture and colour.
+- Month tabs, softly raised folder bodies, and solid index labels create the archival structure. A restrained riso grain sits over photographs while their original colour and full-bleed crop remain dominant.
 - First-login empty archive shows `components/home/FirstDishEmptyState.tsx`: a cut-paper card (deckle edge) with a paper-cut plate + sage sprig, "Your table is set → Add your first dish", and an **Add a dish** button, over faint dashed "slots". Shown only when the archive is truly empty (an empty *search* still shows a plain "No matches").
 
 ## How LOVE Works

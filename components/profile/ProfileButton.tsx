@@ -89,7 +89,7 @@ export function ProfileButton() {
       href="/profile"
       aria-label="Open profile"
       title="Profile"
-      className="tap-scale block size-12 shrink-0 overflow-hidden rounded-full border border-border bg-white/82 text-ink"
+      className="tap-scale block size-10 shrink-0 overflow-hidden rounded-full border border-border bg-white/82 text-ink"
     >
       <Avatar
         src={profile.avatarUrl}

@@ -19,6 +19,16 @@ export async function createEntryInSupabase(supabase: SupabaseClient, entry: Foo
     city: entry.city ?? null,
     country: entry.country ?? null,
     entry_date: entry.entryDate,
+    entry_time: entry.entryTime ?? null,
+    daypart: entry.daypart ?? null,
+    temperature_c: entry.temperatureC ?? null,
+    weather: entry.weather ?? null,
+    atmosphere_x: entry.atmosphere?.x ?? null,
+    atmosphere_y: entry.atmosphere?.y ?? null,
+    mood: entry.mood ?? null,
+    effort: entry.effort ?? null,
+    place_label: entry.placeLabel ?? null,
+    dish_id: entry.dishId ?? null,
     want_to_recreate: entry.wantToRecreate ?? false,
     is_loved: entry.isLoved ?? false,
     ingredients: entry.ingredients ?? null,
@@ -29,11 +39,10 @@ export async function createEntryInSupabase(supabase: SupabaseClient, entry: Foo
 
   let { error: entryError } = await supabase.from("food_entries").insert(payload);
 
-  // Databases that haven't run sunday-meal-plan.sql yet lack the ingredients
-  // column; retry without it so saving cards keeps working.
-  if (entryError && isMissingColumnError(entryError, "ingredients")) {
-    const { ingredients: _ingredients, ...withoutIngredients } = payload;
-    ({ error: entryError } = await supabase.from("food_entries").insert(withoutIngredients));
+  // Keep the client deployable before the additive entry/dish migration is run.
+  if (entryError && isMissingModernEntryColumn(entryError)) {
+    const legacyPayload = legacyEntryPayload(payload);
+    ({ error: entryError } = await supabase.from("food_entries").insert(legacyPayload));
   }
 
   if (entryError) {
@@ -61,6 +70,16 @@ export async function saveEntryToSupabase(supabase: SupabaseClient, entry: FoodE
     city: entry.city ?? null,
     country: entry.country ?? null,
     entry_date: entry.entryDate,
+    entry_time: entry.entryTime ?? null,
+    daypart: entry.daypart ?? null,
+    temperature_c: entry.temperatureC ?? null,
+    weather: entry.weather ?? null,
+    atmosphere_x: entry.atmosphere?.x ?? null,
+    atmosphere_y: entry.atmosphere?.y ?? null,
+    mood: entry.mood ?? null,
+    effort: entry.effort ?? null,
+    place_label: entry.placeLabel ?? null,
+    dish_id: entry.dishId ?? null,
     want_to_recreate: entry.wantToRecreate ?? false,
     is_loved: entry.isLoved ?? false,
     ingredients: entry.ingredients ?? null,
@@ -71,9 +90,9 @@ export async function saveEntryToSupabase(supabase: SupabaseClient, entry: FoodE
 
   let { error: entryError } = await supabase.from("food_entries").upsert(payload, { onConflict: "id" });
 
-  if (entryError && isMissingColumnError(entryError, "ingredients")) {
-    const { ingredients: _ingredients, ...withoutIngredients } = payload;
-    ({ error: entryError } = await supabase.from("food_entries").upsert(withoutIngredients, { onConflict: "id" }));
+  if (entryError && isMissingModernEntryColumn(entryError)) {
+    const legacyPayload = legacyEntryPayload(payload);
+    ({ error: entryError } = await supabase.from("food_entries").upsert(legacyPayload, { onConflict: "id" }));
   }
 
   if (entryError) {
@@ -221,6 +240,34 @@ function isMissingLovedColumnError(error: { code?: string; message?: string }) {
 
 function isMissingColumnError(error: { code?: string; message?: string }, columnName: string) {
   return error.code === "42703" || Boolean(error.message?.includes(columnName));
+}
+
+// Columns that only exist after supabase/memory-cards.sql has been run.
+// Saves keep working on older databases by retrying without them.
+const MODERN_ENTRY_COLUMNS = [
+  "ingredients",
+  "entry_time",
+  "daypart",
+  "temperature_c",
+  "weather",
+  "atmosphere_x",
+  "atmosphere_y",
+  "mood",
+  "effort",
+  "place_label",
+  "dish_id"
+];
+
+function isMissingModernEntryColumn(error: { code?: string; message?: string }) {
+  return MODERN_ENTRY_COLUMNS.some((column) => isMissingColumnError(error, column));
+}
+
+function legacyEntryPayload<T extends Record<string, unknown>>(payload: T) {
+  const legacy: Record<string, unknown> = { ...payload };
+  for (const key of MODERN_ENTRY_COLUMNS) {
+    delete legacy[key];
+  }
+  return legacy;
 }
 
 function isDuplicateError(error: { code?: string }) {

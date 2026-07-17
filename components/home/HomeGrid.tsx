@@ -1,22 +1,60 @@
 import type { FoodEntry } from "@/types/food";
 import { FoodCard } from "@/components/entry/FoodCard";
+import { groupEntriesByMonth } from "@/lib/utils/entries";
 
 type HomeGridProps = {
   entries: FoodEntry[];
   onSelect: (entry: FoodEntry) => void;
 };
 
+/**
+ * The archive feed: one printed memory at a time, filed under month tabs.
+ * Frame numbers run across the whole archive, newest first.
+ */
 export function HomeGrid({ entries, onSelect }: HomeGridProps) {
+  const months = groupEntriesByMonth(entries);
+  let frame = 0;
+
   return (
-    <div className="columns-2 gap-3 md:columns-3 lg:columns-4">
-      {entries.map((entry, index) => (
-        <FoodCard
-          key={entry.id}
-          entry={entry}
-          index={index}
-          onSelect={onSelect}
-        />
-      ))}
+    <div className="space-y-12">
+      {months.map((group, groupIndex) => {
+        const places = Array.from(new Set(group.entries.map(placeName).filter(Boolean))).slice(0, 4);
+        const startFrame = frame;
+        frame += group.entries.length;
+
+        return (
+          <section key={group.month} aria-labelledby={`month-${groupIndex}`}>
+            <header className="archive-folder-tab">
+              <h2 id={`month-${groupIndex}`} className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink">
+                {group.month}
+              </h2>
+            </header>
+            <div className="archive-folder">
+              {places.length ? (
+                <p className="mb-4 px-1 text-center font-mono text-[8px] uppercase tracking-[0.15em] text-muted">
+                  {places.join(" · ")}
+                </p>
+              ) : null}
+              <div className="flex flex-col gap-8">
+                {group.entries.map((entry, index) => (
+                  <FoodCard
+                    key={entry.id}
+                    entry={entry}
+                    number={startFrame + index + 1}
+                    onSelect={onSelect}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
+}
+
+function placeName(entry: FoodEntry) {
+  if (entry.placeLabel) return entry.placeLabel;
+  if (entry.type === "home") return entry.city ? `Home, ${entry.city}` : "At home";
+  return entry.city || entry.country || entry.restaurantName || "";
 }

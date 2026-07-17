@@ -14,6 +14,31 @@ export type FoodPhoto = {
   alt: string;
 };
 
+/**
+ * One-touch atmosphere stamp, stored as the dot's position in the picker:
+ * x 0 drained → 100 energised, y 0 vivid → 100 soothing. (Per the design
+ * handoff; clamped 4–96 in the UI so the dot never touches the edge.)
+ */
+export type Atmosphere = {
+  x: number;
+  y: number;
+};
+
+export type MoodKey = "cozy" | "comfort" | "fresh" | "calm" | "sweet" | "indulgent";
+
+export type EffortLevel = "easy" | "moderate" | "involved";
+
+export type Dish = {
+  id: string;
+  name: string;
+  ingredients?: string;
+  method?: string;
+  effort?: EffortLevel;
+  timeMinutes?: number;
+  tags: string[];
+  timesMade?: number;
+};
+
 export type FoodEntry = {
   id: string;
   title: string;
@@ -26,6 +51,16 @@ export type FoodEntry = {
   city?: string;
   country?: string;
   entryDate: string;
+  entryTime?: string;
+  daypart?: "morning" | "afternoon" | "evening" | "night";
+  temperatureC?: number;
+  weather?: string;
+  atmosphere?: Atmosphere;
+  mood?: MoodKey;
+  effort?: EffortLevel;
+  placeLabel?: string;
+  dishId?: string;
+  dish?: Dish;
   wantToRecreate?: boolean;
   isLoved?: boolean;
   ingredients?: string;

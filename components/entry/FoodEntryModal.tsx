@@ -1,20 +1,33 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, CalendarDays, Check, ImagePlus, Pencil, Sparkles, Trash2, X } from "lucide-react";
-import type { FoodEntry, FoodPhoto } from "@/types/food";
+import { ImagePlus, Mic, Sparkles, Trash2, X } from "lucide-react";
+import type { Atmosphere, EffortLevel, FoodEntry, FoodPhoto, MoodKey } from "@/types/food";
+import { AtmosphereField } from "@/components/entry/AtmosphereField";
 import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
-import { TagPill } from "@/components/ui/TagPill";
 import { createClient } from "@/lib/supabase/client";
-import { useGroups } from "@/lib/groups/GroupProvider";
-import { trackEvent } from "@/lib/analytics/track";
 import { deleteEntryFromSupabase, saveEntryToSupabase } from "@/lib/supabase/save-entry";
 import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
 import { useSavedTags } from "@/lib/hooks/useSavedTags";
 import { canonicalTagKey, commonTags, uniqueTagNames } from "@/lib/tags";
+import { trackEvent } from "@/lib/analytics/track";
+import { MOODS, atmosphereLabel, hasMood, moodByKey } from "@/lib/moods";
 import { cn } from "@/lib/utils/cn";
 import { formatLongDate } from "@/lib/utils/date";
-import { entryLocation, entryTypeLabel } from "@/lib/utils/entries";
+import { entryLocation } from "@/lib/utils/entries";
+
+const PROMPTS = [
+  "Anything worth keeping?",
+  "What was happening around this meal?",
+  "Why might you return to this?",
+  "Leave a fragment…"
+];
+
+const EFFORTS: Array<{ key: EffortLevel; label: string }> = [
+  { key: "easy", label: "Easy" },
+  { key: "moderate", label: "Moderate" },
+  { key: "involved", label: "Involved" }
+];
 
 type FoodEntryModalProps = {
   entry: FoodEntry;
@@ -24,63 +37,59 @@ type FoodEntryModalProps = {
   closeOnSwipeUp?: boolean;
 };
 
-type DraftEntry = {
+type Draft = {
   title: string;
   notes: string;
   recipe: string;
   ingredients: string;
+  city: string;
+  placeLabel: string;
+  weather: string;
+  mood?: MoodKey;
+  effort?: EffortLevel;
+  atmosphere?: Atmosphere;
   tags: string[];
+  customTag: string;
   photos: FoodPhoto[];
   files: File[];
-  customTag: string;
 };
 
 export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwipeUp }: FoodEntryModalProps) {
-  const { activeGroup } = useGroups();
-  const kitchenNotesLabel = activeGroup?.name ? `${activeGroup.name}'s kitchen notes` : "Kitchen notes";
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const sheetRef = useRef<HTMLElement | null>(null);
-  const gestureRef = useRef<{ startY: number; startX: number; active: boolean; endY: number | null }>({
-    startY: 0,
-    startX: 0,
-    active: false,
-    endY: null
-  });
-  const wheelDistanceRef = useRef(0);
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState<DraftEntry>({
-    title: entry.title,
-    notes: entry.notes ?? "",
-    recipe: entry.recipe ?? "",
-    ingredients: entry.ingredients ?? "",
-    tags: entry.tags,
-    photos: entry.photos,
-    files: [],
-    customTag: ""
-  });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const gesture = useRef({ y: 0, active: false });
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [error, setError] = useState("");
   const [detecting, setDetecting] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [error, setError] = useState("");
   const [detectError, setDetectError] = useState("");
+  const [draft, setDraft] = useState<Draft>(() => draftFromEntry(entry));
+  const [promptIndex] = useState(() => Math.floor(Math.random() * PROMPTS.length));
+
+  const mood = moodByKey(editing ? draft.mood : entry.mood);
+  const moodIsSet = editing ? Boolean(draft.mood) : hasMood(entry);
+  const accentBg = moodIsSet ? mood.bg : "#1a1817";
+  const accentFg = moodIsSet ? mood.fg : "#fbf9f4";
+
   const savedTags = useSavedTags([...entry.tags, ...draft.tags]);
-  const newPhotoPreviews = useMemo(
-    () => draft.files.map((file) => ({ file, url: URL.createObjectURL(file) })),
-    [draft.files]
-  );
   const tagChoices = useMemo(() => {
     const byKey = new Map<string, string>();
 
     for (const tag of [...entry.tags, ...draft.tags, ...savedTags, ...commonTags]) {
       const trimmed = tag.trim();
-      if (trimmed) {
-        byKey.set(canonicalTagKey(trimmed), trimmed);
-      }
+      if (trimmed) byKey.set(canonicalTagKey(trimmed), trimmed);
     }
 
     return Array.from(byKey.values());
   }, [draft.tags, entry.tags, savedTags]);
+
+  const newPhotoPreviews = useMemo(
+    () => draft.files.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    [draft.files]
+  );
 
   useEffect(() => {
     return () => {
@@ -89,124 +98,19 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
   }, [newPhotoPreviews]);
 
   useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isEditing) {
-        onClose();
-      }
+    function keydown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !editing) onClose();
     }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isEditing, onClose]);
-
-  function canCloseFromGesture(target: EventTarget | null) {
-    if (!closeOnSwipeUp || isEditing) {
-      return false;
-    }
-
-    if (!(target instanceof HTMLElement)) {
-      return true;
-    }
-
-    return !target.closest("button, input, textarea, select, a");
-  }
-
-  function isAtScrollEnd(element: HTMLElement) {
-    return element.scrollTop + element.clientHeight >= element.scrollHeight - 8;
-  }
-
-  function isScrollable(element: HTMLElement) {
-    return element.scrollHeight - element.clientHeight > 8;
-  }
-
-  function handlePointerDown(event: React.PointerEvent<HTMLElement>) {
-    if (!canCloseFromGesture(event.target)) {
-      return;
-    }
-
-    gestureRef.current = {
-      startY: event.clientY,
-      startX: event.clientX,
-      active: true,
-      endY: null
-    };
-  }
-
-  function handlePointerMove(event: React.PointerEvent<HTMLElement>) {
-    const gesture = gestureRef.current;
-    const sheet = sheetRef.current;
-
-    if (!gesture.active || !sheet || !canCloseFromGesture(event.target)) {
-      return;
-    }
-
-    const deltaX = Math.abs(event.clientX - gesture.startX);
-
-    // While there is still content to scroll, let the card scroll normally.
-    if (isScrollable(sheet) && !isAtScrollEnd(sheet)) {
-      gesture.endY = null;
-      return;
-    }
-
-    // We are at the end (or the card is short enough not to scroll). Anchor here,
-    // then require a deliberate upward pull past that point to close.
-    if (gesture.endY === null) {
-      gesture.endY = event.clientY;
-      return;
-    }
-
-    const up = gesture.endY - event.clientY;
-
-    if (up > 86 && up > deltaX * 1.35) {
-      gesture.active = false;
-      gesture.endY = null;
-      onClose();
-    }
-  }
-
-  function handlePointerEnd() {
-    gestureRef.current.active = false;
-    gestureRef.current.endY = null;
-  }
-
-  function handleWheel(event: React.WheelEvent<HTMLElement>) {
-    if (!canCloseFromGesture(event.target)) {
-      return;
-    }
-
-    const sheet = event.currentTarget;
-
-    // Only dismiss when scrolling past the end of the content (trackpad/mouse equivalent
-    // of pulling up past the bottom).
-    if (!isAtScrollEnd(sheet) || event.deltaY <= 0) {
-      wheelDistanceRef.current = 0;
-      return;
-    }
-
-    wheelDistanceRef.current += event.deltaY;
-
-    if (wheelDistanceRef.current > 140) {
-      wheelDistanceRef.current = 0;
-      onClose();
-    }
-  }
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, [editing, onClose]);
 
   function startEditing() {
-    setDraft({
-      title: entry.title,
-      notes: entry.notes ?? "",
-      recipe: entry.recipe ?? "",
-      ingredients: entry.ingredients ?? "",
-      tags: entry.tags,
-      photos: entry.photos,
-      files: [],
-      customTag: ""
-    });
+    setDraft(draftFromEntry(entry));
     setError("");
-    setIsEditing(true);
+    setDetectError("");
+    setConfirmDelete(false);
+    setEditing(true);
   }
 
   function toggleTag(tag: string) {
@@ -225,27 +129,17 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
 
   function addCustomTag() {
     const tag = draft.customTag.trim();
+    if (!tag) return;
 
-    if (!tag) {
-      return;
-    }
-
-    setDraft((current) => {
-      const exists = current.tags.some((candidate) => canonicalTagKey(candidate) === canonicalTagKey(tag));
-
-      return {
-        ...current,
-        customTag: "",
-        tags: exists ? current.tags : uniqueTagNames([...current.tags, tag])
-      };
-    });
+    setDraft((current) => ({
+      ...current,
+      customTag: "",
+      tags: uniqueTagNames([...current.tags, tag])
+    }));
   }
 
   function addFiles(fileList: FileList | null) {
-    if (!fileList) {
-      return;
-    }
-
+    if (!fileList) return;
     const imageFiles = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
     setDraft((current) => ({ ...current, files: [...current.files, ...imageFiles] }));
   }
@@ -273,7 +167,6 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
         throw new Error(data.error || "Could not read this photo.");
       }
 
-      // Append below anything already written so nothing is overwritten.
       setDraft((current) => ({
         ...current,
         ingredients: current.ingredients.trim()
@@ -287,359 +180,510 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
     }
   }
 
-  async function saveEdit() {
-    setError("");
+  async function save() {
     setSaving(true);
+    setError("");
 
     try {
-      const nextEntry: FoodEntry = {
+      const supabase = createClient();
+      if (!supabase) throw new Error("Supabase is not connected.");
+
+      const next: FoodEntry = {
         ...entry,
         title: draft.title.trim() || entry.title,
         notes: draft.notes.trim() || undefined,
         recipe: draft.recipe.trim() || undefined,
         ingredients: draft.ingredients.trim() || undefined,
+        city: draft.city.trim() || undefined,
+        placeLabel: draft.placeLabel.trim() || undefined,
+        weather: draft.weather.trim() || undefined,
+        mood: draft.mood,
+        effort: draft.effort,
+        atmosphere: draft.atmosphere,
         tags: uniqueTagNames(draft.tags),
         photos: draft.photos
       };
 
-      const supabase = createClient();
-      if (!supabase) {
-        throw new Error("Supabase is not connected.");
-      }
-
       if (draft.files.length) {
         const uploads = await uploadFoodPhotos({ supabase, entryId: entry.id, files: draft.files });
-        nextEntry.photos = [
+        next.photos = [
           ...draft.photos,
-          ...uploads.map((upload, index) => photoFromUpload({ entryId: entry.id, title: nextEntry.title, upload, index }))
+          ...uploads.map((upload, index) => photoFromUpload({ entryId: entry.id, title: next.title, upload, index }))
         ];
       }
 
-      if (!nextEntry.photos.length) {
-        throw new Error("Keep at least one photo on this food card.");
+      if (!next.photos.length) {
+        throw new Error("Keep at least one photograph on this memory.");
       }
 
-      await saveEntryToSupabase(supabase, nextEntry);
-      onUpdate?.(nextEntry);
-      setIsEditing(false);
+      await saveEntryToSupabase(supabase, next);
+      onUpdate?.(next);
+      setEditing(false);
       trackEvent("dish_updated", { dishId: entry.id, groupId: entry.groupId });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update this food card.");
+      setError(caught instanceof Error ? caught.message : "Could not update this memory.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function deleteEntry() {
+  async function remove() {
     if (!confirmDelete) {
       setConfirmDelete(true);
-      setError("");
       return;
     }
 
-    setError("");
     setDeleting(true);
 
     try {
       const supabase = createClient();
-      if (!supabase) {
-        throw new Error("Supabase is not connected.");
-      }
-
+      if (!supabase) throw new Error("Supabase is not connected.");
       await deleteEntryFromSupabase(supabase, entry.id);
-      onDelete?.(entry.id);
       trackEvent("dish_deleted", { dishId: entry.id, groupId: entry.groupId });
+      onDelete?.(entry.id);
       onClose();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not delete this food card.");
+      setError(caught instanceof Error ? caught.message : "Could not delete this memory.");
     } finally {
       setDeleting(false);
     }
   }
 
+  function pointerDown(event: React.PointerEvent<HTMLElement>) {
+    if (!closeOnSwipeUp || editing || (event.target as HTMLElement).closest("button,input,textarea,select")) return;
+    gesture.current = { y: event.clientY, active: true };
+  }
+
+  function pointerMove(event: React.PointerEvent<HTMLElement>) {
+    const sheet = sheetRef.current;
+    if (!gesture.current.active || !sheet || sheet.scrollTop + sheet.clientHeight < sheet.scrollHeight - 8) return;
+    if (gesture.current.y - event.clientY > 100) {
+      gesture.current.active = false;
+      onClose();
+    }
+  }
+
+  const ingredientLines = (entry.ingredients ?? "")
+    .split(/\n|,/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-end bg-ink/55 p-0 sm:place-items-center sm:p-4"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget && !isEditing) {
-          onClose();
-        }
-      }}
+      className="fixed inset-0 z-50 grid place-items-end bg-[rgba(20,16,14,0.55)] backdrop-blur-[3px] sm:place-items-center sm:p-4"
+      onPointerDown={(event) => event.target === event.currentTarget && !editing && onClose()}
     >
       <article
         ref={sheetRef}
-        className="soft-fade max-h-[94dvh] w-full max-w-[760px] overflow-y-auto rounded-t-[28px] bg-[#fffefa] shadow-sm [scrollbar-width:none] sm:rounded-[28px] [&::-webkit-scrollbar]:hidden"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerEnd}
-        onPointerCancel={handlePointerEnd}
-        onWheel={handleWheel}
+        className="memory-sheet max-h-[92dvh] w-full max-w-[430px] overflow-y-auto rounded-t-[30px] bg-[#fbf9f4] shadow-[0_30px_60px_-20px_rgba(20,16,14,0.45)] [scrollbar-width:none] sm:rounded-[30px] [&::-webkit-scrollbar]:hidden"
+        onPointerDown={pointerDown}
+        onPointerMove={pointerMove}
+        onPointerUp={() => { gesture.current.active = false; }}
       >
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-[#fffefa] px-6 py-5">
-          <div className="flex items-center gap-3">
-            <span className="size-3 rounded-full bg-accent" />
-            <p className="font-mono text-sm uppercase text-muted">
-              {entryTypeLabel(entry)}
+        {/* ---- hero ---- */}
+        <div className="relative overflow-hidden rounded-t-[30px]">
+          <PhotoCarousel photos={editing ? draft.photos : entry.photos} />
+          <span
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-28"
+            style={{ background: "linear-gradient(to top, rgba(12,10,9,0.62), transparent)" }}
+          />
+          {moodIsSet ? (
+            <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-[rgba(12,10,9,0.38)] px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-white backdrop-blur-[6px]">
+              <span className="size-2 rounded-full" style={{ background: mood.bg }} />
+              {mood.name}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => (editing ? setEditing(false) : onClose())}
+            className="absolute right-4 top-4 grid size-[30px] place-items-center rounded-full bg-[rgba(12,10,9,0.45)] text-white"
+            aria-label={editing ? "Cancel editing" : "Close memory"}
+          >
+            <X size={16} />
+          </button>
+          {!editing ? (
+            <p className="pointer-events-none absolute inset-x-5 bottom-4 font-serif text-[26px] font-semibold italic leading-[1.1] text-[#fbf9f4]">
+              {entry.title}
             </p>
-          </div>
-          <div className="flex items-center gap-4 text-muted">
-            {isEditing ? (
-              <button
-                type="button"
-                onClick={saveEdit}
-                disabled={saving}
-                className="tap-scale text-ink disabled:cursor-wait disabled:opacity-50"
-                aria-label="Save food card"
-              >
-                <Check aria-hidden="true" size={25} strokeWidth={2} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={startEditing}
-                className="tap-scale hover:text-ink"
-                aria-label="Edit food card"
-              >
-                <Pencil aria-hidden="true" size={25} strokeWidth={1.9} />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={deleteEntry}
-              disabled={deleting}
-              className={cn(
-                "tap-scale flex items-center gap-1.5 disabled:cursor-wait disabled:opacity-50",
-                confirmDelete ? "text-accent" : "hover:text-ink"
-              )}
-              aria-label={confirmDelete ? "Confirm delete food card" : "Delete food card"}
-            >
-              {confirmDelete ? <span className="font-mono text-xs uppercase">Delete?</span> : null}
-              <Trash2 aria-hidden="true" size={24} strokeWidth={1.9} />
-            </button>
-            <button type="button" onClick={onClose} className="tap-scale hover:text-ink" aria-label="Close food card">
-              <X aria-hidden="true" size={29} strokeWidth={1.9} />
-            </button>
-          </div>
-        </header>
+          ) : null}
+        </div>
 
-        <PhotoCarousel photos={entry.photos} />
-
-        <div className="space-y-7 px-6 py-7 sm:px-8">
-          <div className="space-y-4">
-            {isEditing ? (
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-muted">Title</span>
-                <input
-                  value={draft.title}
-                  onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-                  className="min-h-12 rounded-lg border border-border bg-white px-4 text-lg outline-none transition focus:border-accent"
-                />
-              </label>
-            ) : (
-              <h2 className="font-serif text-4xl italic leading-tight text-ink sm:text-5xl">
-                {entry.title}
-              </h2>
-            )}
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-sm text-muted sm:text-base">
-              <span className="inline-flex items-center gap-2">
-                <CalendarDays aria-hidden="true" size={17} strokeWidth={1.8} />
-                {formatLongDate(entry.entryDate)}
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span aria-hidden="true" className="grid size-5 place-items-center rounded-full border border-muted/70 text-[11px]">◎</span>
-                {entryLocation(entry)}
-              </span>
+        {!editing ? (
+          /* ============================ VIEW ============================ */
+          <div className="flex flex-col gap-[18px] px-[22px] py-6">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <Meta label="Date">{formatLongDate(entry.entryDate)}</Meta>
+              <Meta label="Place">{entry.placeLabel || entryLocation(entry)}</Meta>
+              {entry.weather ? <Meta label="Weather · auto">{entry.weather}</Meta> : null}
+              {entry.dish?.timesMade && entry.dish.timesMade > 1 ? (
+                <Meta label="Made">{entry.dish.timesMade} times</Meta>
+              ) : null}
             </div>
-          </div>
 
-          <section className="border-t border-border pt-6">
-            <h3 className="mb-5 font-mono text-sm uppercase text-muted">The memory</h3>
-            {isEditing ? (
-              <textarea
-                value={draft.notes}
-                onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
-                rows={5}
-                className="w-full rounded-lg border border-border bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-accent"
-                placeholder="What should you remember?"
-              />
-            ) : (
-              <p className="font-serif text-2xl italic leading-[1.65] text-ink">
-                {entry.notes || "No memory note yet."}
-              </p>
-            )}
-          </section>
+            {entry.atmosphere ? (
+              <AtmosphereField value={entry.atmosphere} mood={moodIsSet ? mood : undefined} readOnly />
+            ) : null}
 
-          <section className="border-t border-border pt-6">
-            <h3 className="mb-4 font-mono text-sm uppercase text-muted">Tags</h3>
-            {isEditing ? (
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {tagChoices.map((tag) => (
-                    <TagPill
-                      key={tag}
-                      active={draft.tags.some((candidate) => canonicalTagKey(candidate) === canonicalTagKey(tag))}
-                      onClick={() => toggleTag(tag)}
-                    >
+            {entry.notes ? (
+              <div>
+                <SectionLabel>Optional words</SectionLabel>
+                <blockquote className="mt-2 font-serif text-[18px] italic leading-[1.5] text-ink">
+                  “{entry.notes}”
+                </blockquote>
+              </div>
+            ) : null}
+
+            <div className="h-px bg-[#ece8df]" />
+
+            {/* ---- the dish record ---- */}
+            <div className="space-y-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="font-serif text-[21px] font-semibold italic leading-tight text-ink">{entry.title}</p>
+                {entry.effort ? (
+                  <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.16em] text-muted">
+                    {entry.effort}
+                  </span>
+                ) : null}
+              </div>
+
+              {entry.tags.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {entry.tags.map((tag) => (
+                    <span key={tag} className="rounded-full bg-[#efece4] px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-[#8a8378]">
                       {tag}
-                    </TagPill>
+                    </span>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    value={draft.customTag}
-                    onChange={(event) => setDraft((current) => ({ ...current, customTag: event.target.value }))}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        addCustomTag();
-                      }
-                    }}
-                    placeholder="Add tag"
-                    className="min-h-11 flex-1 rounded-lg border border-border bg-white px-4 text-sm outline-none transition focus:border-accent"
-                  />
-                  <button
-                    type="button"
-                    onClick={addCustomTag}
-                    className="tap-scale rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {entry.tags.length ? entry.tags.map((tag) => (
-                  <span key={tag} className="rounded-full border border-border bg-white px-3 py-1.5 text-sm font-medium text-ink">
-                    {tag}
-                  </span>
-                )) : <p className="text-sm text-muted">No tags yet.</p>}
-              </div>
-            )}
-          </section>
+              ) : null}
 
-          {isEditing || entry.ingredients ? (
-            <section className="border-t border-border pt-6">
-              <h3 className="mb-4 font-mono text-sm uppercase text-muted">Ingredients</h3>
-              {isEditing ? (
-                <div className="space-y-3">
-                  <textarea
-                    value={draft.ingredients}
-                    onChange={(event) => setDraft((current) => ({ ...current, ingredients: event.target.value }))}
-                    rows={5}
-                    className="w-full rounded-lg border border-border bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-accent"
-                    placeholder={"One ingredient per line, e.g.\n300g squid\n2 lemons\nolive oil"}
-                  />
-                  <button
-                    type="button"
-                    onClick={detectIngredients}
-                    disabled={detecting}
-                    className="tap-scale flex min-h-11 items-center gap-2 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink disabled:cursor-wait disabled:opacity-60"
-                  >
-                    <Sparkles aria-hidden="true" size={15} strokeWidth={1.9} />
-                    {detecting ? "Reading photo…" : "Detect from photo"}
-                  </button>
-                  {detectError ? <p className="text-sm leading-6 text-accent">{detectError}</p> : null}
-                </div>
-              ) : (
-                <ul className="space-y-1">
-                  {(entry.ingredients ?? "")
-                    .split(/\n|,/)
-                    .map((line) => line.trim())
-                    .filter(Boolean)
-                    .map((line, index) => (
-                      <li key={index} className="text-base leading-7 text-ink/80">
+              {ingredientLines.length ? (
+                <div>
+                  <SectionLabel>Ingredients</SectionLabel>
+                  <ul className="mt-2 font-mono text-[11px] text-ink">
+                    {ingredientLines.map((line, index) => (
+                      <li key={index} className="border-t border-dashed border-[#dcd7cc] py-1.5 first:border-t-0">
                         {line}
                       </li>
                     ))}
-                </ul>
-              )}
-            </section>
-          ) : null}
+                  </ul>
+                </div>
+              ) : null}
 
-          {isEditing ? (
-            <section className="border-t border-border pt-6">
-              <h3 className="mb-4 font-mono text-sm uppercase text-muted">Photos</h3>
-              <div className="grid grid-cols-3 gap-3">
+              {entry.recipe ? (
+                <div>
+                  <SectionLabel>How we made it</SectionLabel>
+                  <p className="mt-2 whitespace-pre-line text-[13.5px] leading-6 text-[#4a453d]">{entry.recipe}</p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-1 flex gap-2.5">
+              <button
+                type="button"
+                onClick={startEditing}
+                className="tap-scale flex-1 rounded-full border py-3 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.16em]"
+                style={{ borderColor: accentBg, color: moodIsSet ? mood.bg : "#1a1817" }}
+              >
+                Edit entry
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="tap-scale flex-1 rounded-full py-3 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.16em]"
+                style={{ background: accentBg, color: accentFg }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* ============================ EDIT ============================ */
+          <div className="flex flex-col gap-5 px-[22px] py-6">
+            <div>
+              <SectionLabel>Mood</SectionLabel>
+              <div className="mt-2 flex items-center gap-3">
+                {MOODS.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() =>
+                      setDraft((current) => ({
+                        ...current,
+                        mood: current.mood === option.key ? undefined : option.key
+                      }))
+                    }
+                    aria-label={`Mood: ${option.name}`}
+                    aria-pressed={draft.mood === option.key}
+                    className="size-[26px] rounded-full"
+                    style={{
+                      background: option.bg,
+                      boxShadow: draft.mood === option.key ? "0 0 0 3px #fbf9f4, 0 0 0 5px #1a1817" : undefined
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <Field label="Name">
+              <input
+                value={draft.title}
+                onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+                className="entry-input font-serif text-[22px] italic"
+              />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Place"><input value={draft.placeLabel} onChange={(event) => setDraft({ ...draft, placeLabel: event.target.value })} placeholder="At home · Angel" className="entry-input" /></Field>
+              <Field label="City"><input value={draft.city} onChange={(event) => setDraft({ ...draft, city: event.target.value })} className="entry-input" /></Field>
+            </div>
+            <Field label="Weather · auto">
+              <input value={draft.weather} onChange={(event) => setDraft({ ...draft, weather: event.target.value })} placeholder="11°C · Rain · Evening" className="entry-input" />
+              <p className="mt-1 font-serif text-[12px] italic text-muted">Filled in from the date and place — correct it if it&apos;s off.</p>
+            </Field>
+
+            <div>
+              <SectionLabel>Atmosphere</SectionLabel>
+              <div className="mt-2">
+                <AtmosphereField
+                  value={draft.atmosphere}
+                  onChange={(atmosphere) => setDraft((current) => ({ ...current, atmosphere }))}
+                  mood={draft.mood ? moodByKey(draft.mood) : undefined}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <SectionLabel>Optional words</SectionLabel>
+                <button
+                  type="button"
+                  onClick={() => setRecording((current) => !current)}
+                  aria-pressed={recording}
+                  aria-label="Voice note"
+                  className={cn(
+                    "grid size-8 place-items-center rounded-full border border-[#dcd7cc] text-muted transition",
+                    recording && "border-red-600 bg-red-600 text-white"
+                  )}
+                >
+                  <Mic size={14} />
+                </button>
+              </div>
+              <textarea
+                rows={2}
+                value={draft.notes}
+                onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
+                placeholder={PROMPTS[promptIndex]}
+                className="entry-input mt-2 py-2 font-serif text-[15px] italic"
+              />
+            </div>
+
+            <div>
+              <SectionLabel>Effort</SectionLabel>
+              <div className="mt-2 grid grid-cols-3 overflow-hidden rounded-full border border-[#dcd7cc]">
+                {EFFORTS.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() =>
+                      setDraft((current) => ({
+                        ...current,
+                        effort: current.effort === option.key ? undefined : option.key
+                      }))
+                    }
+                    className="py-2 font-mono text-[9px] uppercase tracking-[0.14em]"
+                    style={
+                      draft.effort === option.key
+                        ? { background: accentBg, color: accentFg }
+                        : { background: "#efece4", color: "#6d675c" }
+                    }
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <SectionLabel>Tags</SectionLabel>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {tagChoices.map((tag) => {
+                  const active = draft.tags.some((candidate) => canonicalTagKey(candidate) === canonicalTagKey(tag));
+
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      className="rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.12em]"
+                      style={
+                        active
+                          ? { background: accentBg, color: accentFg, borderColor: accentBg }
+                          : { background: "#efece4", color: "#8a8378", borderColor: "#efece4" }
+                      }
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex gap-2">
+                <input
+                  value={draft.customTag}
+                  onChange={(event) => setDraft({ ...draft, customTag: event.target.value })}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addCustomTag();
+                    }
+                  }}
+                  placeholder="Add tag"
+                  className="entry-input flex-1"
+                />
+                <button type="button" onClick={addCustomTag} className="tap-scale rounded-full bg-[#efece4] px-4 font-mono text-[9px] uppercase tracking-[0.14em] text-ink">
+                  Add
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <SectionLabel>Ingredients</SectionLabel>
+              <textarea
+                rows={4}
+                value={draft.ingredients}
+                onChange={(event) => setDraft({ ...draft, ingredients: event.target.value })}
+                placeholder={"One per line\n300g squid\n2 lemons"}
+                className="entry-input mt-2 py-2 font-mono text-[12px]"
+              />
+              <button
+                type="button"
+                onClick={detectIngredients}
+                disabled={detecting}
+                className="tap-scale mt-2 inline-flex items-center gap-2 rounded-full bg-[#efece4] px-4 py-2 font-mono text-[9px] uppercase tracking-[0.14em] text-ink disabled:cursor-wait disabled:opacity-60"
+              >
+                <Sparkles size={13} />
+                {detecting ? "Reading photo…" : "Detect from photo"}
+              </button>
+              {detectError ? <p className="mt-1.5 text-[12px] leading-5 text-red-700">{detectError}</p> : null}
+            </div>
+
+            <Field label="How we made it">
+              <textarea rows={5} value={draft.recipe} onChange={(event) => setDraft({ ...draft, recipe: event.target.value })} className="entry-input py-2 text-[13px]" />
+            </Field>
+
+            <div>
+              <SectionLabel>Photographs</SectionLabel>
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 {draft.photos.map((photo) => (
-                  <div key={photo.id} className="group relative overflow-hidden rounded-lg">
-                    <img
-                      src={photo.thumbnailUrl ?? photo.imageUrl}
-                      alt={photo.alt}
-                      loading="lazy"
-                      sizes="160px"
-                      className="aspect-[4/5] w-full object-cover"
-                    />
+                  <div key={photo.id} className="relative overflow-hidden rounded-[10px]">
+                    <img src={photo.thumbnailUrl ?? photo.imageUrl} alt={photo.alt} loading="lazy" className="aspect-[4/5] w-full object-cover" />
                     <button
                       type="button"
                       onClick={() => setDraft((current) => ({ ...current, photos: current.photos.filter((item) => item.id !== photo.id) }))}
-                      className="absolute right-1.5 top-1.5 grid size-8 place-items-center rounded-full bg-white/86 text-ink shadow-sm"
+                      className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-white/85 text-ink"
                       aria-label="Remove photo"
                     >
-                      <Trash2 aria-hidden="true" size={15} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 ))}
                 {newPhotoPreviews.map(({ file, url }) => (
-                  <div key={`${file.name}-${file.lastModified}`} className="group relative overflow-hidden rounded-lg">
-                    <img src={url} alt={file.name} loading="lazy" sizes="160px" className="aspect-[4/5] w-full object-cover" />
+                  <div key={`${file.name}-${file.lastModified}`} className="relative overflow-hidden rounded-[10px]">
+                    <img src={url} alt={file.name} loading="lazy" className="aspect-[4/5] w-full object-cover" />
                     <button
                       type="button"
                       onClick={() => setDraft((current) => ({ ...current, files: current.files.filter((item) => item !== file) }))}
-                      className="absolute right-1.5 top-1.5 grid size-8 place-items-center rounded-full bg-white/86 text-ink shadow-sm"
+                      className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-white/85 text-ink"
                       aria-label="Remove new photo"
                     >
-                      <Trash2 aria-hidden="true" size={15} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 ))}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="tap-scale grid aspect-[4/5] place-items-center rounded-lg border border-dashed border-border bg-white text-muted"
+                  className="tap-scale grid aspect-[4/5] place-items-center rounded-[10px] border border-dashed border-[#dcd7cc] text-muted"
                   aria-label="Add photos"
                 >
-                  <ImagePlus aria-hidden="true" size={26} strokeWidth={1.8} />
+                  <ImagePlus size={20} />
                 </button>
               </div>
-              <input
-                ref={fileInputRef}
-                className="sr-only"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(event) => addFiles(event.target.files)}
-              />
-            </section>
-          ) : null}
+              <input ref={fileInputRef} className="sr-only" type="file" accept="image/*" multiple onChange={(event) => addFiles(event.target.files)} />
+            </div>
 
-          <section className="pattern-dots rounded-lg border border-border bg-white p-5">
-            <h3 className="mb-4 flex items-center gap-2 font-mono text-sm uppercase text-accent">
-              <BookOpen aria-hidden="true" size={20} strokeWidth={1.9} />
-              {kitchenNotesLabel}
-            </h3>
-            {isEditing ? (
-              <textarea
-                value={draft.recipe}
-                onChange={(event) => setDraft((current) => ({ ...current, recipe: event.target.value }))}
-                rows={9}
-                className="w-full rounded-lg border border-border bg-[#fffefa] px-4 py-3 font-mono text-sm leading-7 text-ink outline-none transition focus:border-accent"
-                placeholder="Ingredients, method, links, or tweaks for next time."
-              />
-            ) : (
-              <p className="whitespace-pre-line font-mono text-base leading-8 text-ink/78">
-                {entry.recipe || "No recipe yet. Tap edit to add kitchen notes."}
-              </p>
-            )}
-          </section>
+            <button
+              type="button"
+              onClick={remove}
+              disabled={deleting}
+              className={cn("inline-flex items-center gap-2 text-[13px]", confirmDelete ? "text-red-700" : "text-muted")}
+            >
+              <Trash2 size={15} /> {confirmDelete ? "Tap again to delete this memory" : "Delete memory"}
+            </button>
 
-          {entry.wantToRecreate ? (
-            <p className="rounded-lg bg-surface-warm px-4 py-3 text-sm font-medium text-ink">
-              Want to recreate
-            </p>
-          ) : null}
-          {error ? <p className="text-sm leading-6 text-accent">{error}</p> : null}
-        </div>
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="tap-scale flex-1 rounded-full border border-[#dcd7cc] py-3 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={save}
+                disabled={saving}
+                className="tap-scale flex-1 rounded-full py-3 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.16em] disabled:cursor-wait disabled:opacity-70"
+                style={{ background: accentBg, color: accentFg }}
+              >
+                {saving ? "Saving…" : "Save entry"}
+              </button>
+            </div>
+
+            {error ? <p className="text-[13px] leading-5 text-red-700">{error}</p> : null}
+          </div>
+        )}
       </article>
     </div>
+  );
+}
+
+function draftFromEntry(entry: FoodEntry): Draft {
+  return {
+    title: entry.title,
+    notes: entry.notes ?? "",
+    recipe: entry.recipe ?? "",
+    ingredients: entry.ingredients ?? "",
+    city: entry.city ?? "",
+    placeLabel: entry.placeLabel ?? "",
+    weather: entry.weather ?? "",
+    mood: entry.mood,
+    effort: entry.effort,
+    atmosphere: entry.atmosphere,
+    tags: entry.tags,
+    customTag: "",
+    photos: entry.photos,
+    files: []
+  };
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#8a8378]">{children}</p>;
+}
+
+function Meta({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <SectionLabel>{label}</SectionLabel>
+      <p className="mt-1 font-mono text-[11px] text-ink">{children}</p>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="grid gap-1.5">
+      <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#8a8378]">{label}</span>
+      {children}
+    </label>
   );
 }

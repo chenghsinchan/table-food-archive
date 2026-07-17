@@ -14,6 +14,7 @@ import {
   X
 } from "lucide-react";
 import type { FoodEntry, MealPlanItem, MealSlot } from "@/types/food";
+import { ArchivePageTabs } from "@/components/navigation/ArchivePageTabs";
 import { ProfileButton } from "@/components/profile/ProfileButton";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
 import { useGroups } from "@/lib/groups/GroupProvider";
@@ -534,23 +535,29 @@ export function SundayExperience() {
   }, [entries, picker]);
 
   return (
-    <main className="relative mx-auto w-full max-w-[760px] px-4 pb-10 pt-1 sm:px-6">
+    <main className="relative mx-auto w-full max-w-[760px] px-3 pb-10 pt-1 sm:px-6">
       <header className="flex w-full items-end justify-between gap-4 pb-5 pt-2">
-        <h1 className="table-wordmark text-[58px] leading-none text-ink sm:text-[86px]">TABLE</h1>
+        <h1 className="table-wordmark text-[44px] leading-none text-ink sm:text-[72px]">TABLE</h1>
         <div className="flex items-center pb-1">
           <ProfileButton />
         </div>
       </header>
 
-      <div className="flex items-center justify-between gap-3 pb-4">
-        <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted">Sunday</p>
-        <div className="flex shrink-0 items-center rounded-full bg-surface-warm p-1">
+      <ArchivePageTabs />
+
+      <div className="flex items-end justify-between gap-3">
+        <div className="archive-folder-tab">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink">
+            {view === "week" ? "Week plan" : "Month plan"}
+          </p>
+        </div>
+        <div className="mb-2 flex shrink-0 items-center rounded-[13px] border border-border bg-[#fbf9f4] p-[3px]">
           <button
             type="button"
             onClick={() => setView("week")}
             className={cn(
-              "tap-scale rounded-full px-3 py-1.5 text-xs font-semibold",
-              view === "week" ? "bg-ink text-white" : "text-ink"
+              "tap-scale rounded-[9px] px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.12em]",
+              view === "week" ? "bg-black text-white" : "text-muted"
             )}
           >
             Week
@@ -562,8 +569,8 @@ export function SundayExperience() {
               setView("month");
             }}
             className={cn(
-              "tap-scale rounded-full px-3 py-1.5 text-xs font-semibold",
-              view === "month" ? "bg-ink text-white" : "text-ink"
+              "tap-scale rounded-[9px] px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.12em]",
+              view === "month" ? "bg-black text-white" : "text-muted"
             )}
           >
             Month
@@ -571,7 +578,8 @@ export function SundayExperience() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between pb-5">
+      <section className="sunday-planner">
+      <div className="flex items-center justify-between border-b border-border pb-3">
         <button
           type="button"
           onClick={() =>
@@ -579,7 +587,7 @@ export function SundayExperience() {
               ? setWeekStart((current) => addDays(current, -7))
               : setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))
           }
-          className="tap-scale grid size-11 place-items-center rounded-full text-ink"
+          className="tap-scale grid size-10 place-items-center rounded-[10px] text-ink"
           aria-label={view === "week" ? "Previous week" : "Previous month"}
         >
           <ChevronLeft aria-hidden="true" size={20} strokeWidth={2} />
@@ -590,7 +598,7 @@ export function SundayExperience() {
             setWeekStart(startOfWeek(new Date()));
             setMonthDate(new Date());
           }}
-          className="tap-scale min-w-0 truncate rounded-full bg-surface-warm px-5 py-2 font-serif text-xl italic text-ink"
+          className="tap-scale min-w-0 truncate rounded-[10px] border border-border bg-[#fbf9f4] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-ink"
           title="Back to today"
           aria-label="Back to today"
         >
@@ -605,7 +613,7 @@ export function SundayExperience() {
               ? setWeekStart((current) => addDays(current, 7))
               : setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))
           }
-          className="tap-scale grid size-11 place-items-center rounded-full text-ink"
+          className="tap-scale grid size-10 place-items-center rounded-[10px] text-ink"
           aria-label={view === "week" ? "Next week" : "Next month"}
         >
           <ChevronRight aria-hidden="true" size={20} strokeWidth={2} />
@@ -622,7 +630,7 @@ export function SundayExperience() {
         </p>
       ) : view === "month" ? (
         /* ============================ MONTH VIEW ============================ */
-        <div className="space-y-2">
+        <div className="mt-4 space-y-2">
           <div className="grid grid-cols-7 gap-1 px-1">
             {DAY_LETTERS.map((letter, index) => (
               <p key={index} className="text-center font-mono text-[10px] uppercase text-muted">
@@ -652,7 +660,7 @@ export function SundayExperience() {
                   onPointerCancel={endWeekPress}
                   onClickCapture={suppressClickAfterPress}
                   className={cn(
-                    "select-none rounded-[14px] border bg-white/72 p-1",
+                    "select-none rounded-[12px] border bg-[#fbf9f4] p-1",
                     isViewedWeek ? "border-ink" : "border-border",
                     copyBuffer?.sourceKey === key && "bg-surface-warm"
                   )}
@@ -746,14 +754,14 @@ export function SundayExperience() {
           </p>
         </div>
       ) : showSkeleton ? (
-        <div className="space-y-3">
+        <div className="mt-4 space-y-3">
           {DAY_LABELS.map((label) => (
             <div key={label} className="h-24 animate-pulse rounded-[18px] border border-border bg-white/60" />
           ))}
         </div>
       ) : (
         /* ============================ WEEK VIEW ============================ */
-        <div className="space-y-3">
+        <div className="mt-4 space-y-3">
           {DAY_LABELS.map((label, dayIndex) => {
             const date = addDays(weekStart, dayIndex);
             const isToday = toDateKey(date) === todayKey;
@@ -762,7 +770,7 @@ export function SundayExperience() {
               .sort((a, b) => SLOT_ORDER[a.mealSlot] - SLOT_ORDER[b.mealSlot] || a.position - b.position);
 
             return (
-              <section key={label} data-day={dayIndex} className="rounded-[18px] border border-border bg-white/72 p-4">
+              <section key={label} data-day={dayIndex} className="rounded-[13px] border border-border bg-[#fbf9f4] p-3">
                 <button
                   type="button"
                   onClick={() => toggleDay(dayIndex)}
@@ -793,7 +801,7 @@ export function SundayExperience() {
                         data-slot={slot.key}
                         className={cn(
                           "rounded-[14px] border p-2 transition",
-                          isDropTarget ? "border-ink bg-surface-warm" : "border-border/60 bg-white/50"
+                          isDropTarget ? "border-ink bg-surface-warm" : "border-border/70 bg-surface-warm/45"
                         )}
                       >
                         <div className="flex items-center justify-between gap-2 px-1">
@@ -821,7 +829,7 @@ export function SundayExperience() {
                                 <li
                                   key={item.id}
                                   className={cn(
-                                    "flex items-center gap-2 rounded-[12px] border border-border bg-white p-1.5 pr-2",
+                                    "flex items-center gap-2 rounded-[10px] border border-border bg-[#fbf9f4] p-1.5 pr-2",
                                     drag?.item.id === item.id && "opacity-40"
                                   )}
                                 >
@@ -896,7 +904,7 @@ export function SundayExperience() {
 
       {/* ---- weekly shopping list (merged ingredients) ---- */}
       {view === "week" && shoppingList.mealsCounted > 0 ? (
-        <section className="mt-6 rounded-[18px] border border-border bg-white/72 p-4">
+        <section className="mt-6 rounded-[13px] border border-border bg-[#fbf9f4] p-4">
           <button
             type="button"
             onClick={toggleShoppingList}
@@ -935,6 +943,8 @@ export function SundayExperience() {
           ) : null}
         </section>
       ) : null}
+
+      </section>
 
       {/* ---- long-press week menu (month view) ---- */}
       {weekMenu ? (

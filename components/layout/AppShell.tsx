@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import { AuthGate } from "@/components/auth/AuthGate";
 import { BottomNav } from "@/components/navigation/BottomNav";
-import { FloatingAddButton } from "@/components/navigation/FloatingAddButton";
 import { LocalArchiveSync } from "@/components/sync/LocalArchiveSync";
 import { EntryCacheProvider } from "@/lib/entries/EntryCacheProvider";
 import { GroupProvider } from "@/lib/groups/GroupProvider";
@@ -24,7 +23,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className={isLove ? "h-dvh overflow-hidden pt-5 sm:pt-8" : "min-h-dvh pb-28 pt-5 sm:pt-8"}>
             <LocalArchiveSync />
             <main className={isLove ? "h-full overflow-hidden" : undefined}>{children}</main>
-            <FloatingAddButton />
             <BottomNav />
           </div>
         </EntryCacheProvider>
