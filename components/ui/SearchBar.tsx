@@ -6,9 +6,10 @@ type SearchBarProps = {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  autoFocus?: boolean;
 };
 
-export function SearchBar({ value, onChange, placeholder = "Search memories" }: SearchBarProps) {
+export function SearchBar({ value, onChange, placeholder = "Search memories", autoFocus = false }: SearchBarProps) {
   return (
     <label className="liquid-glass flex min-h-12 items-center gap-3 rounded-pill px-4 text-sm text-muted">
       <Search aria-hidden="true" size={18} strokeWidth={1.8} />
@@ -17,6 +18,7 @@ export function SearchBar({ value, onChange, placeholder = "Search memories" }: 
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        autoFocus={autoFocus}
         className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted/80"
         type="search"
       />

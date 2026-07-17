@@ -224,37 +224,25 @@ img {
     background: rgb(var(--ink));
   }
 
+  /* A clean archive folder: a simple squared tab sitting flush on the body. */
   .archive-folder-tab {
     position: relative;
     z-index: 1;
     width: fit-content;
-    min-width: 9.5rem;
-    margin-left: 0.5rem;
-    padding: 0.65rem 1.25rem 0.55rem 0.9rem;
+    margin-left: 0.85rem;
+    padding: 0.5rem 1rem 0.55rem;
     border: 1px solid rgb(var(--border));
     border-bottom: 0;
-    border-radius: 13px 13px 0 0;
+    border-radius: 10px 10px 0 0;
     background: rgb(var(--surface-warm));
-  }
-
-  .archive-folder-tab::after {
-    position: absolute;
-    right: -1.2rem;
-    bottom: -1px;
-    width: 1.35rem;
-    height: 1.6rem;
-    content: "";
-    background: rgb(var(--surface-warm));
-    clip-path: polygon(0 0, 100% 100%, 0 100%);
-    border-bottom: 1px solid rgb(var(--border));
   }
 
   .archive-folder {
     position: relative;
     margin-top: -1px;
-    padding: 0.65rem;
+    padding: 0.75rem;
     border: 1px solid rgb(var(--border));
-    border-radius: 15px;
+    border-radius: 14px;
     background: rgb(var(--surface-warm));
     box-shadow: 0 8px 24px rgba(26, 24, 23, 0.045);
   }

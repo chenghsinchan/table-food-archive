@@ -48,7 +48,9 @@ function NavTab({ tab, active }: { tab: (typeof tabs)[number]; active: boolean }
       prefetch
       aria-current={active ? "page" : undefined}
       className={cn(
-        "tap-scale flex min-h-11 items-center gap-2 rounded-full px-4 font-mono text-[10px] uppercase tracking-[0.14em] transition",
+        // Equal fixed widths keep the + at the exact center of the island
+        // (and therefore of the screen, since the island itself is centered).
+        "tap-scale flex min-h-11 w-[108px] items-center justify-center gap-2 rounded-full font-mono text-[10px] uppercase tracking-[0.14em] transition",
         active ? "bg-ink/[0.07] text-ink" : "text-muted"
       )}
     >

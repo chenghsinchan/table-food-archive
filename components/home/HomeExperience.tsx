@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import type { FoodEntry } from "@/types/food";
 import { FoodEntryModal } from "@/components/entry/FoodEntryModal";
 import { FirstDishEmptyState } from "@/components/home/FirstDishEmptyState";
@@ -14,10 +15,22 @@ import { searchEntries } from "@/lib/utils/entries";
 
 export function HomeExperience() {
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<FoodEntry | null>(null);
   const { entries, status, error, upsertEntry, removeEntry } = useFoodEntries();
   const hasEntries = entries.length > 0;
   const showSkeleton = !hasEntries && status !== "error";
+
+  useEffect(() => {
+    function updateScrollState() {
+      setIsScrolled(window.scrollY > 140);
+    }
+
+    updateScrollState();
+    window.addEventListener("scroll", updateScrollState, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrollState);
+  }, []);
 
   const visibleEntries = useMemo(() => {
     return searchEntries(entries, query).sort((a, b) => {
@@ -41,18 +54,35 @@ export function HomeExperience() {
         <h1 className="table-wordmark text-[44px] leading-none text-ink sm:text-[72px]">
           TABLE
         </h1>
-        <div className="flex items-center pb-1">
+        <div className="flex items-center gap-2 pb-1">
+          <button
+            type="button"
+            onClick={() => setSearchOpen((open) => !open)}
+            className="tap-scale grid size-10 place-items-center rounded-full text-muted hover:text-ink"
+            aria-expanded={searchOpen}
+            aria-label="Search the archive"
+          >
+            <Search size={17} strokeWidth={1.7} />
+          </button>
           <ProfileButton />
         </div>
       </header>
 
-      <div className="mb-1 flex justify-end font-mono text-[9px] uppercase tracking-[0.2em] text-muted">
+      <div className="mb-5 flex justify-end font-mono text-[9px] uppercase tracking-[0.2em] text-muted">
         <span>{String(entries.length).padStart(2, "0")} frames</span>
       </div>
 
-      <div className="mb-6 max-w-[340px]">
-        <SearchBar value={query} onChange={setQuery} placeholder="Warm evenings, relaxed, London." />
-      </div>
+      {/* The same pill in both homes: fixed at the top once you scroll down,
+          in-flow when opened from the header icon. Shape never changes. */}
+      {isScrolled ? (
+        <div className="fixed left-1/2 top-3 z-30 w-[calc(100%-2rem)] max-w-[340px] -translate-x-1/2">
+          <SearchBar value={query} onChange={setQuery} placeholder="Warm evenings, relaxed, London." />
+        </div>
+      ) : searchOpen || query ? (
+        <div className="mb-6 max-w-[340px]">
+          <SearchBar value={query} onChange={setQuery} placeholder="Warm evenings, relaxed, London." autoFocus />
+        </div>
+      ) : null}
 
       {showSkeleton ? (
         <GridSkeleton />
