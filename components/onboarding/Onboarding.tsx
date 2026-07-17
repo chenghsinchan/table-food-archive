@@ -150,9 +150,19 @@ function DemoCard({ flipped, onFlip }: { flipped: boolean; onFlip: () => void })
             backfaceVisibility: "hidden",
             opacity: flipped ? 0 : 1,
             transition: "opacity 0s .3s",
-            background: "linear-gradient(160deg,#a4693f 0%,#5b3a20 55%,#33200f)"
+            background: "linear-gradient(160deg,#e7d9a6 0%,#d8b45f 55%,#b98b3e)"
           }}
         >
+          {/* Riso pho illustration; falls back to the warm gradient if absent. */}
+          <img
+            src="/onboarding/chicken-pho.png"
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 size-full object-cover"
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
+            }}
+          />
           <span
             className="pointer-events-none absolute inset-0"
             style={{ background: "linear-gradient(to top, rgba(12,10,9,0.62) 0%, rgba(12,10,9,0.1) 42%, transparent 60%)" }}
