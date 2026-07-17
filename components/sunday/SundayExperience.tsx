@@ -542,17 +542,18 @@ export function SundayExperience() {
         </div>
       </header>
 
-      {/* Two folders at opposite corners of the same folder body: WEEK PLAN
-          sits exactly where HOME's month tab does; MONTH mirrors it on the
-          right. The active plan's tab connects; the other tucks behind. */}
-      <div className="flex items-end justify-between">
+      {/* Two file-folder tabs along one top edge (WEEK PLAN at HOME's month-tab
+          position, MONTH right beside it). Tops stay aligned; the active tab
+          layers over its neighbour and connects to the folder body — the other
+          tucks behind, differentiated by shade only, never dropped down. */}
+      <div className="flex items-end">
         <button
           type="button"
           onClick={() => setView("week")}
           aria-pressed={view === "week"}
           className={cn(
-            "archive-folder-tab font-mono text-[11px] uppercase tracking-[0.2em] transition",
-            view === "week" ? "relative z-10 text-ink" : "relative z-0 translate-y-[5px] bg-[#e2ddd1] text-muted"
+            "archive-folder-tab relative font-mono text-[11px] uppercase tracking-[0.2em] transition",
+            view === "week" ? "z-20 text-ink" : "z-10 bg-[#e2ddd1] text-muted"
           )}
         >
           Week plan
@@ -565,8 +566,8 @@ export function SundayExperience() {
           }}
           aria-pressed={view === "month"}
           className={cn(
-            "archive-folder-tab ml-0 mr-[0.85rem] font-mono text-[11px] uppercase tracking-[0.2em] transition",
-            view === "month" ? "relative z-10 text-ink" : "relative z-0 translate-y-[5px] bg-[#e2ddd1] text-muted"
+            "archive-folder-tab relative -ml-[9px] font-mono text-[11px] uppercase tracking-[0.2em] transition",
+            view === "month" ? "z-20 text-ink" : "z-0 bg-[#e2ddd1] text-muted"
           )}
         >
           Month
