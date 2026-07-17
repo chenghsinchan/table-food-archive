@@ -542,37 +542,34 @@ export function SundayExperience() {
         </div>
       </header>
 
-      <div className="flex items-end justify-between gap-3">
-        <div className="archive-folder-tab">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink">
-            {view === "week" ? "Week plan" : "Month plan"}
-          </p>
-        </div>
-        <div className="mb-2 flex shrink-0 items-center rounded-[13px] border border-border bg-[#fbf9f4] p-[3px]">
-          <button
-            type="button"
-            onClick={() => setView("week")}
-            className={cn(
-              "tap-scale rounded-[9px] px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.12em]",
-              view === "week" ? "bg-black text-white" : "text-muted"
-            )}
-          >
-            Week
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMonthDate(weekStart);
-              setView("month");
-            }}
-            className={cn(
-              "tap-scale rounded-[9px] px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.12em]",
-              view === "month" ? "bg-black text-white" : "text-muted"
-            )}
-          >
-            Month
-          </button>
-        </div>
+      {/* Two folders, front and back: the active plan's tab connects to the
+          folder body below; the other sits tucked behind it. */}
+      <div className="flex items-end">
+        <button
+          type="button"
+          onClick={() => setView("week")}
+          aria-pressed={view === "week"}
+          className={cn(
+            "archive-folder-tab ml-0 font-mono text-[11px] uppercase tracking-[0.2em] transition",
+            view === "week" ? "relative z-10 text-ink" : "relative z-0 translate-y-[5px] bg-[#e2ddd1] text-muted"
+          )}
+        >
+          Week plan
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMonthDate(weekStart);
+            setView("month");
+          }}
+          aria-pressed={view === "month"}
+          className={cn(
+            "archive-folder-tab -ml-[3px] font-mono text-[11px] uppercase tracking-[0.2em] transition",
+            view === "month" ? "relative z-10 text-ink" : "relative z-0 translate-y-[5px] bg-[#e2ddd1] text-muted"
+          )}
+        >
+          Month
+        </button>
       </div>
 
       <section className="sunday-planner">

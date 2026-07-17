@@ -50,7 +50,7 @@ export function HomeExperience() {
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-3 pb-10 pt-1 sm:px-6 lg:px-8">
-      <header className="flex items-end justify-between gap-4 pb-3 pt-2">
+      <header className="flex items-end justify-between gap-4 pb-5 pt-2">
         <h1 className="table-wordmark text-[44px] leading-none text-ink sm:text-[72px]">
           TABLE
         </h1>
@@ -68,18 +68,14 @@ export function HomeExperience() {
         </div>
       </header>
 
-      <div className="mb-5 flex justify-end font-mono text-[9px] uppercase tracking-[0.2em] text-muted">
-        <span>{String(entries.length).padStart(2, "0")} frames</span>
-      </div>
-
-      {/* The same pill in both homes: fixed at the top once you scroll down,
-          in-flow when opened from the header icon. Shape never changes. */}
+      {/* Same pill, same shape, width of the nav island. Fixed at the top once
+          you scroll; in-flow when opened from the header icon. */}
       {isScrolled ? (
-        <div className="fixed left-1/2 top-3 z-30 w-[calc(100%-2rem)] max-w-[340px] -translate-x-1/2">
+        <div className="fixed left-1/2 top-3 z-30 w-[292px] -translate-x-1/2">
           <SearchBar value={query} onChange={setQuery} placeholder="Warm evenings, relaxed, London." />
         </div>
       ) : searchOpen || query ? (
-        <div className="mb-6 max-w-[340px]">
+        <div className="mx-auto mb-5 w-[292px]">
           <SearchBar value={query} onChange={setQuery} placeholder="Warm evenings, relaxed, London." autoFocus />
         </div>
       ) : null}

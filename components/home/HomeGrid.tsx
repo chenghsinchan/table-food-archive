@@ -24,11 +24,20 @@ export function HomeGrid({ entries, onSelect }: HomeGridProps) {
 
         return (
           <section key={group.month} aria-labelledby={`month-${groupIndex}`}>
-            <header className="archive-folder-tab">
-              <h2 id={`month-${groupIndex}`} className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink">
-                {group.month}
-              </h2>
-            </header>
+            {/* First folder tab shares its row with the frame count, mirroring
+                SUNDAY's tab row so both pages' folders start at the same height. */}
+            <div className="flex items-end justify-between gap-3">
+              <header className="archive-folder-tab">
+                <h2 id={`month-${groupIndex}`} className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink">
+                  {group.month}
+                </h2>
+              </header>
+              {groupIndex === 0 ? (
+                <span className="mb-2 font-mono text-[9px] uppercase tracking-[0.2em] text-muted">
+                  {String(entries.length).padStart(2, "0")} frames
+                </span>
+              ) : null}
+            </div>
             <div className="archive-folder">
               {places.length ? (
                 <p className="mb-4 px-1 text-center font-mono text-[8px] uppercase tracking-[0.15em] text-muted">
