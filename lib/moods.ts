@@ -38,6 +38,36 @@ export function hasMood(entry: Pick<FoodEntry, "mood">): boolean {
 }
 
 /**
+ * Each mood's home position on the atmosphere field (x drained→energised,
+ * y vivid→soothing). Used to colour the field live as the dot moves, so the
+ * one-touch stamp and the six-mood palette are the same system.
+ */
+const MOOD_ANCHORS: Array<{ key: MoodKey; x: number; y: number }> = [
+  { key: "comfort", x: 22, y: 22 }, // vivid, lower-energy — hearty
+  { key: "sweet", x: 55, y: 16 }, // vivid, playful
+  { key: "fresh", x: 82, y: 26 }, // energised, bright
+  { key: "calm", x: 20, y: 78 }, // soothing, quiet
+  { key: "cozy", x: 50, y: 55 }, // warm centre
+  { key: "indulgent", x: 82, y: 80 } // energised, rich, soothing
+];
+
+/** The mood whose home position is nearest the given atmosphere point. */
+export function moodForAtmosphere(x: number, y: number): Mood {
+  let nearest = MOOD_ANCHORS[0];
+  let best = Infinity;
+
+  for (const anchor of MOOD_ANCHORS) {
+    const distance = (anchor.x - x) ** 2 + (anchor.y - y) ** 2;
+    if (distance < best) {
+      best = distance;
+      nearest = anchor;
+    }
+  }
+
+  return moodByKey(nearest.key);
+}
+
+/**
  * Plain-language reading of an atmosphere position, e.g. "Drained · Soothing".
  * x: 0 drained → 100 energised. y: 0 vivid → 100 soothing.
  */

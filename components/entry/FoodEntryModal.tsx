@@ -447,7 +447,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                 <AtmosphereField
                   value={draft.atmosphere}
                   onChange={(atmosphere) => setDraft((current) => ({ ...current, atmosphere }))}
-                  mood={draft.mood ? moodByKey(draft.mood) : undefined}
+                  onMoodChange={(nextMood) => setDraft((current) => ({ ...current, mood: nextMood.key }))}
                 />
               </div>
             </div>
