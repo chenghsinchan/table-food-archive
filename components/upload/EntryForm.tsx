@@ -114,7 +114,7 @@ export function EntryForm({}: EntryFormProps) {
   if (savedEntry) {
     return (
       <>
-        <AddHeader label="The feeling" onBack={() => window.location.replace(returnTo)} />
+        <AddHeader onBack={() => window.location.replace(returnTo)} />
 
         <div className="archive-folder-tab">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink">Filed</h2>
@@ -171,7 +171,7 @@ export function EntryForm({}: EntryFormProps) {
 
   return (
     <>
-      <AddHeader label="New memory" onBack={() => window.location.assign(returnTo)} />
+      <AddHeader onBack={() => window.location.assign(returnTo)} />
 
       <div className="archive-folder-tab">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink">New frame</h2>
@@ -222,26 +222,24 @@ export function EntryForm({}: EntryFormProps) {
 }
 
 /**
- * Page chrome shared by both phases: the TABLE wordmark, a small Back pill so
- * the entry can be abandoned, and a mono caption — the same header language as
- * Home and Profile, so adding a memory feels like the same surface.
+ * Page chrome shared by both phases: the TABLE wordmark and a quiet, unfilled
+ * Back control so the entry can be abandoned — the same header language as Home
+ * and Profile, so adding a memory feels like the same surface. The folder tab
+ * below carries the section label, so no caption is needed here.
  */
-function AddHeader({ label, onBack }: { label: string; onBack: () => void }) {
+function AddHeader({ onBack }: { onBack: () => void }) {
   return (
-    <header className="pb-5 pt-2">
-      <div className="flex items-end justify-between gap-4">
-        <h1 className="table-wordmark text-[44px] leading-none text-ink sm:text-[72px]">TABLE</h1>
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Leave without saving"
-          className="tap-scale mb-1 inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-[#fbf9f4] px-4 font-mono text-[10px] uppercase tracking-[0.16em] text-ink"
-        >
-          <ArrowLeft aria-hidden="true" size={14} strokeWidth={1.8} />
-          Back
-        </button>
-      </div>
-      <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">{label}</p>
+    <header className="flex items-end justify-between gap-4 pb-5 pt-2">
+      <h1 className="table-wordmark text-[44px] leading-none text-ink sm:text-[72px]">TABLE</h1>
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="Leave without saving"
+        className="tap-scale mb-2 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted hover:text-ink"
+      >
+        <ArrowLeft aria-hidden="true" size={14} strokeWidth={1.8} />
+        Back
+      </button>
     </header>
   );
 }

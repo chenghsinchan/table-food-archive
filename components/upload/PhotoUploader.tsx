@@ -72,7 +72,7 @@ export function PhotoUploader({ onFilesChange, onSourceChange }: PhotoUploaderPr
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="tap-scale flex min-h-12 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-white"
+          className="tap-scale flex min-h-12 items-center justify-center gap-2 rounded-[16px] bg-ink px-4 text-sm font-semibold text-white"
         >
           <ImagePlus aria-hidden="true" size={17} />
           Library
@@ -80,7 +80,7 @@ export function PhotoUploader({ onFilesChange, onSourceChange }: PhotoUploaderPr
         <button
           type="button"
           onClick={() => cameraRef.current?.click()}
-          className="tap-scale flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-ink"
+          className="tap-scale flex min-h-12 items-center justify-center gap-2 rounded-[16px] border border-border bg-white px-4 text-sm font-semibold text-ink"
         >
           <Camera aria-hidden="true" size={17} />
           Camera
