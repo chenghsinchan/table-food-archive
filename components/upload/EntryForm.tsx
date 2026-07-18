@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Check, ChevronDown, LoaderCircle } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, LoaderCircle } from "lucide-react";
 import type { Atmosphere, EntryType, FoodEntry, FoodPhoto, MoodKey } from "@/types/food";
 import type { PhotoSource } from "@/types/analytics";
 import { AtmosphereField } from "@/components/entry/AtmosphereField";
@@ -113,92 +113,136 @@ export function EntryForm({}: EntryFormProps) {
 
   if (savedEntry) {
     return (
-      <section className="mx-auto max-w-lg space-y-7 pb-8">
-        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
-          <span className="grid size-5 place-items-center rounded-full bg-ink text-white"><Check size={12} /></span>
-          Saved
+      <>
+        <AddHeader label="The feeling" onBack={() => window.location.replace(returnTo)} />
+
+        <div className="archive-folder-tab">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink">Filed</h2>
         </div>
-        <div>
-          <h2 className="font-serif text-4xl italic leading-tight text-ink">How was the atmosphere?</h2>
-          <p className="mt-2 text-sm text-muted">One touch. Skip whenever you like.</p>
-        </div>
-        <div>
-          <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.16em] text-muted">Mood · optional</p>
-          <div className="flex items-center gap-3">
-            {MOODS.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                onClick={() => setMoodKey((current) => (current === option.key ? undefined : option.key))}
-                aria-label={`Mood: ${option.name}`}
-                aria-pressed={moodKey === option.key}
-                className="size-[26px] rounded-full"
-                style={{
-                  background: option.bg,
-                  boxShadow: moodKey === option.key ? "0 0 0 3px #f1eee7, 0 0 0 5px #1a1817" : undefined
-                }}
-              />
-            ))}
+        <section className="archive-folder space-y-6">
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
+            <span className="grid size-5 place-items-center rounded-full bg-ink text-white"><Check size={12} /></span>
+            Saved to the archive
           </div>
-        </div>
-        <AtmosphereField value={atmosphere} onChange={setAtmosphere} mood={moodKey ? moodByKey(moodKey) : undefined} />
-        <label className="block rounded-[16px] border border-border bg-[#fbf9f4] p-4">
-          <span className="font-serif text-lg italic text-muted">Anything worth keeping?</span>
-          <textarea value={fragment} onChange={(event) => setFragment(event.target.value)} rows={3} className="mt-2 w-full resize-none bg-transparent text-base leading-7 outline-none" placeholder="Leave a fragment…" />
-        </label>
-        <div className="flex items-center justify-between">
-          <button type="button" onClick={() => window.location.replace(returnTo)} className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Skip</button>
-          <button type="button" onClick={finish} disabled={saving} className="tap-scale rounded-full bg-ink px-7 py-3 text-sm font-semibold text-white disabled:opacity-60">
-            {saving ? "Saving…" : "Done"}
-          </button>
-        </div>
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      </section>
+          <div>
+            <h2 className="font-serif text-3xl italic leading-tight text-ink">How was the atmosphere?</h2>
+            <p className="mt-2 text-sm text-muted">One touch. Skip whenever you like.</p>
+          </div>
+          <div>
+            <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.16em] text-muted">Mood · optional</p>
+            <div className="flex items-center gap-3">
+              {MOODS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setMoodKey((current) => (current === option.key ? undefined : option.key))}
+                  aria-label={`Mood: ${option.name}`}
+                  aria-pressed={moodKey === option.key}
+                  className="size-[26px] rounded-full"
+                  style={{
+                    background: option.bg,
+                    boxShadow: moodKey === option.key ? "0 0 0 3px #f1eee7, 0 0 0 5px #1a1817" : undefined
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <AtmosphereField
+            value={atmosphere}
+            onChange={setAtmosphere}
+            onMoodChange={(nextMood) => setMoodKey(nextMood.key)}
+            mood={moodKey ? moodByKey(moodKey) : undefined}
+          />
+          <label className="block rounded-[16px] border border-border bg-[#fbf9f4] p-4">
+            <span className="font-serif text-lg italic text-muted">Anything worth keeping?</span>
+            <textarea value={fragment} onChange={(event) => setFragment(event.target.value)} rows={3} className="mt-2 w-full resize-none bg-transparent text-base leading-7 outline-none" placeholder="Leave a fragment…" />
+          </label>
+          <div className="flex items-center justify-between">
+            <button type="button" onClick={() => window.location.replace(returnTo)} className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Skip</button>
+            <button type="button" onClick={finish} disabled={saving} className="tap-scale rounded-full bg-ink px-7 py-3 text-sm font-semibold text-white disabled:opacity-60">
+              {saving ? "Saving…" : "Done"}
+            </button>
+          </div>
+          {error ? <p className="text-sm text-red-700">{error}</p> : null}
+        </section>
+      </>
     );
   }
 
   return (
-    <form className="space-y-5" onSubmit={capture}>
-      <PhotoUploader onFilesChange={setFiles} onSourceChange={setPhotoSource} />
+    <>
+      <AddHeader label="New memory" onBack={() => window.location.assign(returnTo)} />
 
-      <button
-        type="button"
-        onClick={() => setMoreOpen((open) => !open)}
-        className="flex w-full items-center justify-between border-y border-border py-4 font-mono text-[10px] uppercase tracking-[0.18em] text-muted"
-        aria-expanded={moreOpen}
-      >
-        More <ChevronDown size={16} className={moreOpen ? "rotate-180" : ""} />
-      </button>
+      <div className="archive-folder-tab">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink">New frame</h2>
+      </div>
+      <form className="archive-folder space-y-5" onSubmit={capture}>
+        <PhotoUploader onFilesChange={setFiles} onSourceChange={setPhotoSource} />
 
-      {moreOpen ? (
-        <section className="grid gap-4 rounded-[22px] border border-border bg-surface-warm/80 p-4 sm:p-5">
-          <CaptureField label="Dish or memory name"><input name="title" placeholder="Optional" className="entry-input" /></CaptureField>
-          <div className="grid grid-cols-2 gap-3">
-            <CaptureField label="Kind">
-              <select name="type" defaultValue="home" className="entry-input"><option value="home">Home</option><option value="restaurant">Restaurant</option><option value="travel">Travel</option><option value="recipe">Recipe</option></select>
-            </CaptureField>
-            <CaptureField label="Date"><input name="date" type="date" className="entry-input" /></CaptureField>
-            <CaptureField label="Place"><input name="place" placeholder="At home · Angel" className="entry-input" /></CaptureField>
-            <CaptureField label="City"><input name="city" className="entry-input" /></CaptureField>
-            <CaptureField label="Restaurant"><input name="restaurant" className="entry-input" /></CaptureField>
-            <CaptureField label="Country"><input name="country" className="entry-input" /></CaptureField>
-          </div>
-          <CaptureField label="Ingredients"><textarea name="ingredients" rows={4} className="entry-input py-3" /></CaptureField>
-          <CaptureField label="How we made it"><textarea name="method" rows={5} className="entry-input py-3" /></CaptureField>
-          <label className="flex items-center justify-between py-2 text-sm text-ink">
-            Add this dish to SUNDAY
-            <input type="checkbox" name="recreate" className="size-5 accent-ink" />
-          </label>
-        </section>
-      ) : null}
+        <button
+          type="button"
+          onClick={() => setMoreOpen((open) => !open)}
+          className="flex w-full items-center justify-between border-y border-border py-4 font-mono text-[10px] uppercase tracking-[0.18em] text-muted"
+          aria-expanded={moreOpen}
+        >
+          More <ChevronDown size={16} className={moreOpen ? "rotate-180" : ""} />
+        </button>
 
-      <button type="submit" disabled={saving || !files.length} className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-base font-semibold text-white disabled:opacity-45">
-        {saving ? <LoaderCircle className="animate-spin" size={18} /> : null}
-        {saving ? "Saving this moment…" : "Save memory"}
-      </button>
-      <p className="text-center text-xs leading-5 text-muted">Only the photograph is required. Context can be added after it is safe.</p>
-      {error ? <p className="text-center text-sm text-red-700">{error}</p> : null}
-    </form>
+        {moreOpen ? (
+          <section className="grid gap-4 rounded-[18px] border border-border bg-[#fbf9f4] p-4 sm:p-5">
+            <CaptureField label="Dish or memory name"><input name="title" placeholder="Optional" className="entry-input" /></CaptureField>
+            <div className="grid grid-cols-2 gap-3">
+              <CaptureField label="Kind">
+                <select name="type" defaultValue="home" className="entry-input"><option value="home">Home</option><option value="restaurant">Restaurant</option><option value="travel">Travel</option><option value="recipe">Recipe</option></select>
+              </CaptureField>
+              <CaptureField label="Date"><input name="date" type="date" className="entry-input" /></CaptureField>
+              <CaptureField label="Place"><input name="place" placeholder="At home · Angel" className="entry-input" /></CaptureField>
+              <CaptureField label="City"><input name="city" className="entry-input" /></CaptureField>
+              <CaptureField label="Restaurant"><input name="restaurant" className="entry-input" /></CaptureField>
+              <CaptureField label="Country"><input name="country" className="entry-input" /></CaptureField>
+            </div>
+            <CaptureField label="Ingredients"><textarea name="ingredients" rows={4} className="entry-input py-3" /></CaptureField>
+            <CaptureField label="How we made it"><textarea name="method" rows={5} className="entry-input py-3" /></CaptureField>
+            <label className="flex items-center justify-between py-2 text-sm text-ink">
+              Add this dish to SUNDAY
+              <input type="checkbox" name="recreate" className="size-5 accent-ink" />
+            </label>
+          </section>
+        ) : null}
+
+        <button type="submit" disabled={saving || !files.length} className="tap-scale flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-base font-semibold text-white disabled:opacity-45">
+          {saving ? <LoaderCircle className="animate-spin" size={18} /> : null}
+          {saving ? "Saving this moment…" : "Save memory"}
+        </button>
+        <p className="text-center text-xs leading-5 text-muted">Only the photograph is required. Context can be added after it is safe.</p>
+        {error ? <p className="text-center text-sm text-red-700">{error}</p> : null}
+      </form>
+    </>
+  );
+}
+
+/**
+ * Page chrome shared by both phases: the TABLE wordmark, a small Back pill so
+ * the entry can be abandoned, and a mono caption — the same header language as
+ * Home and Profile, so adding a memory feels like the same surface.
+ */
+function AddHeader({ label, onBack }: { label: string; onBack: () => void }) {
+  return (
+    <header className="pb-5 pt-2">
+      <div className="flex items-end justify-between gap-4">
+        <h1 className="table-wordmark text-[44px] leading-none text-ink sm:text-[72px]">TABLE</h1>
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Leave without saving"
+          className="tap-scale mb-1 inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-[#fbf9f4] px-4 font-mono text-[10px] uppercase tracking-[0.16em] text-ink"
+        >
+          <ArrowLeft aria-hidden="true" size={14} strokeWidth={1.8} />
+          Back
+        </button>
+      </div>
+      <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">{label}</p>
+    </header>
   );
 }
 

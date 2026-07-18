@@ -165,12 +165,29 @@ img {
   .entry-input {
     min-height: 3rem;
     width: 100%;
+    /* Grid items default to min-width:auto; without this a native date input's
+       wide intrinsic size blows its column out of frame. */
+    min-width: 0;
+    max-width: 100%;
     border: 1px solid rgb(var(--border));
     border-radius: 0.7rem;
     background: white;
     padding-inline: 0.85rem;
     color: rgb(var(--ink));
     outline: none;
+  }
+
+  /* Keep the native date/time controls inside the field on iOS Safari. */
+  input.entry-input[type="date"],
+  input.entry-input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+  }
+
+  input.entry-input::-webkit-date-and-time-value {
+    text-align: left;
+    margin: 0;
   }
 
   .entry-input:focus {
