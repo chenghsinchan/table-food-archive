@@ -3,15 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Circle, Plus, Sun } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn } from "@/lib/utils/cn";
 
-const tabs = [
-  { href: "/", label: "Home", icon: Circle },
-  { href: "/sunday", label: "Sunday", icon: Sun }
+type Tab = { href: string; labelKey: TranslationKey; icon: LucideIcon };
+
+const tabs: Tab[] = [
+  { href: "/", labelKey: "nav.home", icon: Circle },
+  { href: "/sunday", labelKey: "nav.sunday", icon: Sun }
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   if (pathname !== "/" && !pathname.startsWith("/sunday")) {
     return null;
@@ -29,7 +35,7 @@ export function BottomNav() {
       <Link
         href={`/add?returnTo=${encodeURIComponent(returnTo)}`}
         prefetch
-        aria-label="Add a food memory"
+        aria-label={t("nav.add")}
         className="tap-scale mx-1 grid size-11 shrink-0 place-items-center rounded-full bg-ink text-white shadow-[0_8px_20px_rgba(26,24,23,0.25)]"
       >
         <Plus aria-hidden="true" size={20} strokeWidth={1.8} />
@@ -39,7 +45,8 @@ export function BottomNav() {
   );
 }
 
-function NavTab({ tab, active }: { tab: (typeof tabs)[number]; active: boolean }) {
+function NavTab({ tab, active }: { tab: Tab; active: boolean }) {
+  const { t } = useLanguage();
   const Icon = tab.icon;
 
   return (
@@ -55,7 +62,7 @@ function NavTab({ tab, active }: { tab: (typeof tabs)[number]; active: boolean }
       )}
     >
       <Icon aria-hidden="true" size={16} strokeWidth={1.7} fill={active ? "currentColor" : "none"} />
-      {tab.label}
+      {t(tab.labelKey)}
     </Link>
   );
 }

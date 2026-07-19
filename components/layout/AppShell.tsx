@@ -7,6 +7,7 @@ import { OnboardingHost } from "@/components/onboarding/OnboardingHost";
 import { LocalArchiveSync } from "@/components/sync/LocalArchiveSync";
 import { EntryCacheProvider } from "@/lib/entries/EntryCacheProvider";
 import { GroupProvider } from "@/lib/groups/GroupProvider";
+import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -14,10 +15,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isLove = pathname.startsWith("/love");
 
   if (isLogin) {
-    return <main>{children}</main>;
+    return (
+      <LanguageProvider>
+        <main>{children}</main>
+      </LanguageProvider>
+    );
   }
 
   return (
+    <LanguageProvider>
     <AuthGate>
       <GroupProvider>
         <EntryCacheProvider>
@@ -30,5 +36,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </EntryCacheProvider>
       </GroupProvider>
     </AuthGate>
+    </LanguageProvider>
   );
 }

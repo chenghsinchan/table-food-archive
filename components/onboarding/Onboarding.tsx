@@ -4,6 +4,8 @@ import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import type { Atmosphere } from "@/types/food";
 import { AtmosphereField } from "@/components/entry/AtmosphereField";
+import { LanguageSelector } from "@/components/settings/LanguageSelector";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { moodByKey } from "@/lib/moods";
 import { cn } from "@/lib/utils/cn";
 
@@ -28,6 +30,7 @@ const cozy = moodByKey("cozy");
  * steps 1–3 only.
  */
 export function Onboarding({ onDone }: { onDone: () => void }) {
+  const { t } = useLanguage();
   const [step, setStep] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [atmosphere, setAtmosphere] = useState<Atmosphere>({ x: 50, y: 50 });
@@ -58,7 +61,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           onClick={finish}
           className="tap-scale font-mono text-[10px] uppercase tracking-[0.18em] text-muted"
         >
-          Skip
+          {t("common.skip")}
         </button>
       </div>
 
@@ -74,6 +77,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 /* ------------------------------------------------------------------ step 1 */
 
 function StepWelcome({ onBegin }: { onBegin: () => void }) {
+  const { t } = useLanguage();
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -84,10 +89,16 @@ function StepWelcome({ onBegin }: { onBegin: () => void }) {
         </div>
         <h1 className="table-wordmark text-[56px] leading-none text-ink">TABLE</h1>
         <p className="mt-5 max-w-[26ch] text-[15px] leading-[1.6] text-[#6d675c]">
-          A quiet place to keep what you taste, where you were, and how it felt.
+          {t("onboarding.welcome.tagline")}
         </p>
       </div>
-      <PrimaryButton onClick={onBegin}>Begin</PrimaryButton>
+      <div className="mb-5">
+        <p className="mb-2 text-center font-mono text-[9px] uppercase tracking-[0.2em] text-muted">
+          {t("onboarding.language")}
+        </p>
+        <LanguageSelector layout="row" />
+      </div>
+      <PrimaryButton onClick={onBegin}>{t("onboarding.begin")}</PrimaryButton>
     </div>
   );
 }
@@ -95,12 +106,14 @@ function StepWelcome({ onBegin }: { onBegin: () => void }) {
 /* ------------------------------------------------------------------ step 2 */
 
 function StepFlip({ flipped, onFlip, onContinue }: { flipped: boolean; onFlip: () => void; onContinue: () => void }) {
+  const { t } = useLanguage();
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="pt-4 text-center">
-        <h2 className="font-serif text-[26px] italic leading-[1.2] text-ink">Tap a memory to turn it over.</h2>
+        <h2 className="font-serif text-[26px] italic leading-[1.2] text-ink">{t("onboarding.flip.title")}</h2>
         <p className="mx-auto mt-2 max-w-[30ch] text-[13px] leading-[1.5] text-[#6d675c]">
-          Every entry hides its mood on the back.
+          {t("onboarding.flip.sub")}
         </p>
       </div>
 
@@ -114,16 +127,16 @@ function StepFlip({ flipped, onFlip, onContinue }: { flipped: boolean; onFlip: (
         >
           {flipped ? (
             <span className="inline-flex items-center gap-1.5">
-              Nicely done <ArrowRight aria-hidden="true" size={12} />
+              {t("onboarding.flip.done")} <ArrowRight aria-hidden="true" size={12} />
             </span>
           ) : (
-            "Tap the card"
+            t("onboarding.flip.tap")
           )}
         </p>
       </div>
 
       <PrimaryButton onClick={onContinue} disabled={!flipped}>
-        Continue
+        {t("common.continue")}
       </PrimaryButton>
     </div>
   );
@@ -216,12 +229,14 @@ function StepAtmosphere({
   onChange: (value: Atmosphere) => void;
   onContinue: () => void;
 }) {
+  const { t } = useLanguage();
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="pt-4 text-center">
-        <h2 className="font-serif text-[26px] italic leading-[1.2] text-ink">One tap says more than words.</h2>
+        <h2 className="font-serif text-[26px] italic leading-[1.2] text-ink">{t("onboarding.atmosphere.title")}</h2>
         <p className="mx-auto mt-2 max-w-[32ch] text-[13px] leading-[1.5] text-[#6d675c]">
-          Drag the dot to record the mood — no writing required.
+          {t("onboarding.atmosphere.sub")}
         </p>
       </div>
 
@@ -231,7 +246,7 @@ function StepAtmosphere({
         </div>
       </div>
 
-      <PrimaryButton onClick={onContinue}>Continue</PrimaryButton>
+      <PrimaryButton onClick={onContinue}>{t("common.continue")}</PrimaryButton>
     </div>
   );
 }
