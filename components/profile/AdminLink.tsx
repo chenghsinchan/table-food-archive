@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BarChart3 } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { createClient } from "@/lib/supabase/client";
 import { OWNER_EMAIL } from "@/lib/groups/constants";
 
 /** A quiet link to the founder-only analytics dashboard. Renders nothing for anyone else. */
 export function AdminLink() {
+  const { t } = useLanguage();
   const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export function AdminLink() {
       className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
     >
       <BarChart3 aria-hidden="true" size={17} />
-      Analytics
+      {t("admin.analytics")}
     </Link>
   );
 }

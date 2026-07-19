@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Check, Copy, UserPlus } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { createClient } from "@/lib/supabase/client";
 import { createAppInvite, getSentAppInvites, type AppInvite } from "@/lib/supabase/app-invites";
 import { trackEvent } from "@/lib/analytics/track";
 import { MAX_APP_INVITES, OWNER_EMAIL } from "@/lib/groups/constants";
 
 export function InviteFriends() {
+  const { t } = useLanguage();
   const [invites, setInvites] = useState<AppInvite[]>([]);
   const [isOwner, setIsOwner] = useState(false);
   const [connected, setConnected] = useState(true);
@@ -108,22 +110,19 @@ export function InviteFriends() {
   return (
     <section className="liquid-island space-y-4 rounded-[28px] p-6">
       <div className="space-y-1">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Invite friends to TABLE</p>
-        <p className="text-sm leading-6 text-muted">
-          Invited friends can sign in with Google and start their own archive right away. They join yours
-          only when an archive member adds them.
-        </p>
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">{t("invite.title")}</p>
+        <p className="text-sm leading-6 text-muted">{t("invite.body")}</p>
       </div>
 
       {limitReached ? (
-        <p className="text-sm leading-6 text-muted">You can invite up to {MAX_APP_INVITES} friends for now.</p>
+        <p className="text-sm leading-6 text-muted">{t("invite.limit", { n: MAX_APP_INVITES })}</p>
       ) : (
         <form onSubmit={handleInvite} className="space-y-3">
           <input
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="friend@gmail.com"
+            placeholder={t("group.email.placeholder")}
             className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
           />
           <button
@@ -132,14 +131,14 @@ export function InviteFriends() {
             className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
           >
             <UserPlus aria-hidden="true" size={17} />
-            {busy ? "Creating…" : "Create invite link"}
+            {busy ? t("invite.creating") : t("invite.create")}
           </button>
         </form>
       )}
 
       {inviteLink ? (
         <div className="space-y-2 rounded-lg border border-border bg-white p-3">
-          <p className="text-sm font-medium text-ink">Invite created. Send them this link.</p>
+          <p className="text-sm font-medium text-ink">{t("invite.created")}</p>
           <p className="break-all font-mono text-xs text-muted">{inviteLink}</p>
           <button
             type="button"
@@ -147,7 +146,7 @@ export function InviteFriends() {
             className="tap-scale flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-surface-warm px-4 text-sm font-semibold text-ink"
           >
             {copied ? <Check aria-hidden="true" size={15} /> : <Copy aria-hidden="true" size={15} />}
-            {copied ? "Copied" : "Copy invite link"}
+            {copied ? t("invite.copied") : t("invite.copy")}
           </button>
         </div>
       ) : null}
@@ -157,14 +156,14 @@ export function InviteFriends() {
       {invites.length ? (
         <div className="space-y-1 border-t border-border pt-4">
           <p className="pb-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-            Invited {isOwner ? `(${invites.length})` : `(${invites.length}/${MAX_APP_INVITES})`}
+            {t("invite.invited")} {isOwner ? `(${invites.length})` : `(${invites.length}/${MAX_APP_INVITES})`}
           </p>
           <ul className="space-y-1">
             {invites.map((invite) => (
               <li key={invite.id} className="flex items-center justify-between gap-3 text-sm">
                 <span className="min-w-0 flex-1 truncate text-ink">{invite.invitedEmail}</span>
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-                  {invite.status === "accepted" ? "Joined" : "Invited"}
+                  {invite.status === "accepted" ? t("invite.joined") : t("invite.invited")}
                 </span>
               </li>
             ))}

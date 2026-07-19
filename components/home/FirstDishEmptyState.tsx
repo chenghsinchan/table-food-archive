@@ -1,11 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type FirstDishEmptyStateProps = {
   message?: string;
 };
 
 export function FirstDishEmptyState({ message }: FirstDishEmptyStateProps) {
+  const { t } = useLanguage();
+
   return (
     <section className="relative mx-auto grid min-h-[62dvh] w-full max-w-md place-items-center px-2">
       {/* faint dashed "slots" hinting the grid will fill up */}
@@ -32,10 +37,10 @@ export function FirstDishEmptyState({ message }: FirstDishEmptyStateProps) {
             </g>
           </svg>
 
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#6f8468]">Your table is set</p>
-          <h2 className="mt-2 font-serif text-3xl italic leading-tight text-ink">Add your first dish</h2>
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#6f8468]">{t("home.empty.eyebrow")}</p>
+          <h2 className="mt-2 font-serif text-3xl italic leading-tight text-ink">{t("home.empty.title")}</h2>
           <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-6 text-muted">
-            {message ?? "Snap something you cooked, ordered, or want to cook again. It lands here, just for your table."}
+            {message ?? t("home.empty.body")}
           </p>
 
           <Link
@@ -45,7 +50,7 @@ export function FirstDishEmptyState({ message }: FirstDishEmptyStateProps) {
             <span className="grid size-6 place-items-center rounded-full bg-white text-ink">
               <Plus aria-hidden="true" size={15} strokeWidth={2.4} />
             </span>
-            Add a dish
+            {t("home.empty.cta")}
           </Link>
         </div>
       </div>

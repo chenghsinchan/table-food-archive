@@ -28,15 +28,14 @@ import {
   updateMealPlanItem
 } from "@/lib/supabase/meal-plan";
 import { cn } from "@/lib/utils/cn";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { LOCALE_TAGS, type TranslationKey } from "@/lib/i18n/translations";
 import { thumbnailSrc } from "@/lib/utils/photos";
 
-const DAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
-
-const MEAL_SLOTS: Array<{ key: MealSlot; label: string }> = [
-  { key: "breakfast", label: "Breakfast" },
-  { key: "lunch", label: "Lunch" },
-  { key: "dinner", label: "Dinner" }
+const MEAL_SLOTS: Array<{ key: MealSlot; labelKey: TranslationKey }> = [
+  { key: "breakfast", labelKey: "sunday.breakfast" },
+  { key: "lunch", labelKey: "sunday.lunch" },
+  { key: "dinner", labelKey: "sunday.dinner" }
 ];
 
 const SLOT_ORDER: Record<MealSlot, number> = { breakfast: 0, lunch: 1, dinner: 2 };
@@ -65,10 +64,10 @@ function fromDateKey(key: string) {
   return new Date(year, month - 1, day);
 }
 
-function formatWeekRange(weekStart: Date) {
+function formatWeekRange(weekStart: Date, localeTag = "en-GB") {
   const weekEnd = addDays(weekStart, 6);
-  const startMonth = weekStart.toLocaleDateString("en-GB", { month: "short" });
-  const endMonth = weekEnd.toLocaleDateString("en-GB", { month: "short" });
+  const startMonth = weekStart.toLocaleDateString(localeTag, { month: "short" });
+  const endMonth = weekEnd.toLocaleDateString(localeTag, { month: "short" });
 
   if (startMonth === endMonth) {
     return `${weekStart.getDate()}–${weekEnd.getDate()} ${endMonth}`;
@@ -111,12 +110,26 @@ type CopyBuffer = {
 };
 
 export function SundayExperience() {
+  const { t, locale } = useLanguage();
   const { entries, status: entriesStatus } = useFoodEntries();
   const { activeGroupId, status: groupStatus } = useGroups();
 
   const [view, setView] = useState<"week" | "month">("week");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const weekKey = toDateKey(weekStart);
+
+  // Weekday names come from the platform in the active language (Monday-first),
+  // so they translate without a hand-kept list.
+  const { DAY_LABELS, DAY_LETTERS } = useMemo(() => {
+    const monday = startOfWeek(new Date());
+    const longFmt = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "long" });
+    const narrowFmt = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "narrow" });
+    const days = Array.from({ length: 7 }, (_, index) => addDays(monday, index));
+    return {
+      DAY_LABELS: days.map((day) => longFmt.format(day)),
+      DAY_LETTERS: days.map((day) => narrowFmt.format(day))
+    };
+  }, [locale]);
 
   const [items, setItems] = useState<MealPlanItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -329,7 +342,7 @@ export function SundayExperience() {
       return;
     }
 
-    const label = formatWeekRange(fromDateKey(sourceKey));
+    const label = formatWeekRange(fromDateKey(sourceKey), LOCALE_TAGS[locale]);
     setCopyBuffer({ label, sourceKey, items: sourceItems });
     setNotice(`Copied ${label}. ${hint ?? "Open another week and tap Paste here."}`);
   }
@@ -415,7 +428,7 @@ export function SundayExperience() {
         ]);
       }
 
-      setNotice(`Pasted into ${formatWeekRange(fromDateKey(targetKey))}.`);
+      setNotice(`Pasted into ${formatWeekRange(fromDateKey(targetKey), LOCALE_TAGS[locale])}.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not paste the week.");
     } finally {
@@ -556,7 +569,7 @@ export function SundayExperience() {
             view === "week" ? "z-20 text-ink" : "z-10 bg-[#e2ddd1] text-muted"
           )}
         >
-          Week plan
+          {t("sunday.weekPlan")}
         </button>
         <button
           type="button"
@@ -570,7 +583,7 @@ export function SundayExperience() {
             view === "month" ? "z-20 text-ink" : "z-0 bg-[#e2ddd1] text-muted"
           )}
         >
-          Month
+          {t("sunday.month")}
         </button>
       </div>
 
@@ -584,7 +597,7 @@ export function SundayExperience() {
               : setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))
           }
           className="tap-scale grid size-10 place-items-center rounded-[10px] text-ink"
-          aria-label={view === "week" ? "Previous week" : "Previous month"}
+          aria-label={view === "week" ? t("sunday.prevWeek") : t("sunday.prevMonth")}
         >
           <ChevronLeft aria-hidden="true" size={20} strokeWidth={2} />
         </button>
@@ -595,12 +608,12 @@ export function SundayExperience() {
             setMonthDate(new Date());
           }}
           className="tap-scale min-w-0 truncate rounded-[10px] border border-border bg-[#fbf9f4] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-ink"
-          title="Back to today"
-          aria-label="Back to today"
+          title={t("sunday.today")}
+          aria-label={t("sunday.today")}
         >
           {view === "week"
-            ? formatWeekRange(weekStart)
-            : monthDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+            ? formatWeekRange(weekStart, LOCALE_TAGS[locale])
+            : monthDate.toLocaleDateString(LOCALE_TAGS[locale], { month: "long", year: "numeric" })}
         </button>
         <button
           type="button"
@@ -610,7 +623,7 @@ export function SundayExperience() {
               : setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))
           }
           className="tap-scale grid size-10 place-items-center rounded-[10px] text-ink"
-          aria-label={view === "week" ? "Next week" : "Next month"}
+          aria-label={view === "week" ? t("sunday.nextWeek") : t("sunday.nextMonth")}
         >
           <ChevronRight aria-hidden="true" size={20} strokeWidth={2} />
         </button>
@@ -746,7 +759,7 @@ export function SundayExperience() {
           )}
 
           <p className="pt-1 text-center text-xs leading-5 text-muted">
-            Tap a week to see its dishes, tap a day again to open it. Long press a week to copy or paste a plan.
+            {t("sunday.monthHint")}
           </p>
         </div>
       ) : showSkeleton ? (
@@ -776,7 +789,7 @@ export function SundayExperience() {
                   <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
                     {label}
                     <span className={cn("ml-2", isToday && "rounded-full bg-ink px-2 py-0.5 text-white")}>
-                      {date.getDate()} {date.toLocaleDateString("en-GB", { month: "short" })}
+                      {date.getDate()} {date.toLocaleDateString(LOCALE_TAGS[locale], { month: "short" })}
                     </span>
                   </p>
                   {!expandedDays.has(dayIndex) && dayItems.length ? (
@@ -801,12 +814,12 @@ export function SundayExperience() {
                         )}
                       >
                         <div className="flex items-center justify-between gap-2 px-1">
-                          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">{slot.label}</p>
+                          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">{t(slot.labelKey)}</p>
                           <button
                             type="button"
                             onClick={() => setPicker({ day: dayIndex, slot: slot.key })}
                             className="tap-scale grid size-7 place-items-center rounded-full bg-surface-warm text-ink"
-                            aria-label={`Add ${slot.label.toLowerCase()} on ${label}`}
+                            aria-label={`${t(slot.labelKey)} · ${label}`}
                           >
                             <Plus aria-hidden="true" size={14} strokeWidth={2.1} />
                           </button>
@@ -880,7 +893,7 @@ export function SundayExperience() {
               className="tap-scale flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-surface-warm px-4 text-xs font-semibold text-ink"
             >
               <Copy aria-hidden="true" size={14} />
-              Copy this week
+              {t("sunday.copyThisWeek")}
             </button>
             {copyBuffer && copyBuffer.sourceKey !== weekKey ? (
               <button
@@ -889,7 +902,7 @@ export function SundayExperience() {
                 className="tap-scale flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-4 text-xs font-semibold text-white"
               >
                 <ClipboardPaste aria-hidden="true" size={14} />
-                Paste here
+                {t("sunday.pasteHere")}
               </button>
             ) : null}
           </div>
@@ -910,7 +923,7 @@ export function SundayExperience() {
               <ShoppingBasket aria-hidden="true" size={16} />
               Shopping list
             </span>
-            <span className="font-mono text-xs text-muted">{showShoppingList ? "Hide" : "Show"}</span>
+            <span className="font-mono text-xs text-muted">{showShoppingList ? t("sunday.hide") : t("sunday.show")}</span>
           </button>
 
           {showShoppingList ? (
@@ -933,7 +946,7 @@ export function SundayExperience() {
                 {shoppingList.mealsWithoutIngredients > 0
                   ? `${shoppingList.mealsWithoutIngredients} planned ${shoppingList.mealsWithoutIngredients === 1 ? "meal has" : "meals have"} no ingredients noted. `
                   : ""}
-                Leftover meals are skipped — they reuse what you already cooked.
+                {t("sunday.leftoverSkipped")}
               </p>
             </div>
           ) : null}
@@ -953,7 +966,7 @@ export function SundayExperience() {
           }}
         >
           <div className="w-full rounded-t-[28px] bg-[#fffefa] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-            <p className="pb-4 font-serif text-2xl italic text-ink">{formatWeekRange(fromDateKey(weekMenu))}</p>
+            <p className="pb-4 font-serif text-2xl italic text-ink">{formatWeekRange(fromDateKey(weekMenu), LOCALE_TAGS[locale])}</p>
             <div className="space-y-2">
               {monthItems.some((item) => item.weekStart === weekMenu) ? (
                 <button
@@ -969,7 +982,7 @@ export function SundayExperience() {
                   className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
                 >
                   <Copy aria-hidden="true" size={15} />
-                  Copy week
+                  {t("sunday.copyWeek")}
                 </button>
               ) : null}
               {copyBuffer && copyBuffer.sourceKey !== weekMenu ? (
@@ -982,7 +995,7 @@ export function SundayExperience() {
                   className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white"
                 >
                   <ClipboardPaste aria-hidden="true" size={15} />
-                  Paste plan ({copyBuffer.label})
+                  {t("sunday.pastePlan", { label: copyBuffer.label })}
                 </button>
               ) : null}
               <button
@@ -1003,7 +1016,7 @@ export function SundayExperience() {
           className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2 rounded-[14px] border border-ink bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm"
           style={{ left: drag.x, top: drag.y }}
         >
-          {entriesById.get(drag.item.foodEntryId)?.title ?? "Dish"}
+          {entriesById.get(drag.item.foodEntryId)?.title ?? t("sunday.dish")}
         </div>
       ) : null}
 
@@ -1020,13 +1033,13 @@ export function SundayExperience() {
           <div className="max-h-[72dvh] w-full overflow-y-auto rounded-t-[28px] bg-[#fffefa] p-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex items-center justify-between pb-4">
               <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
-                {MEAL_SLOTS.find((slot) => slot.key === picker.slot)?.label} · {DAY_LABELS[picker.day]}
+                {(() => { const found = MEAL_SLOTS.find((slot) => slot.key === picker.slot); return found ? t(found.labelKey) : ""; })()} · {DAY_LABELS[picker.day]}
               </p>
               <button
                 type="button"
                 onClick={() => setPicker(null)}
                 className="tap-scale grid size-10 place-items-center text-muted hover:text-ink"
-                aria-label="Close picker"
+                aria-label={t("sunday.closePicker")}
               >
                 <X aria-hidden="true" size={22} strokeWidth={1.9} />
               </button>
@@ -1063,7 +1076,7 @@ export function SundayExperience() {
                 {pickerEntries.rest.length ? (
                   <div>
                     {pickerEntries.suggested.length ? (
-                      <p className="pb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Everything else</p>
+                      <p className="pb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">{t("sunday.everythingElse")}</p>
                     ) : (
                       <p className="pb-2 text-xs leading-5 text-muted">
                         Tip: tag cards “{picker.slot}” in HOME and they&apos;ll appear first here.
@@ -1112,7 +1125,7 @@ export function SundayExperience() {
           <div className="w-full rounded-t-[28px] bg-[#fffefa] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <div className="flex items-center justify-between pb-4">
               <p className="min-w-0 flex-1 truncate pr-3 font-serif text-2xl italic text-ink">
-                {entriesById.get(editingItem.foodEntryId)?.title ?? "Dish"}
+                {entriesById.get(editingItem.foodEntryId)?.title ?? t("sunday.dish")}
               </p>
               <button
                 type="button"
@@ -1126,7 +1139,7 @@ export function SundayExperience() {
 
             <div className="space-y-4">
               <div className="flex items-center justify-between rounded-lg border border-border bg-white p-3">
-                <span className="text-sm font-medium text-ink">Meal</span>
+                <span className="text-sm font-medium text-ink">{t("sunday.meal")}</span>
                 <div className="flex items-center gap-1">
                   {MEAL_SLOTS.map((slot) => (
                     <button
@@ -1138,20 +1151,20 @@ export function SundayExperience() {
                         editingItem.mealSlot === slot.key ? "bg-ink text-white" : "bg-surface-warm text-ink"
                       )}
                     >
-                      {slot.label}
+                      {t(slot.labelKey)}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div className="flex items-center justify-between rounded-lg border border-border bg-white p-3">
-                <span className="text-sm font-medium text-ink">Portions</span>
+                <span className="text-sm font-medium text-ink">{t("sunday.portions")}</span>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => changeItem(editingItem.id, { portions: Math.max(1, editingItem.portions - 1) })}
                     className="tap-scale grid size-10 place-items-center rounded-full bg-surface-warm text-ink"
-                    aria-label="Fewer portions"
+                    aria-label={t("sunday.fewerPortions")}
                   >
                     <Minus aria-hidden="true" size={16} />
                   </button>
@@ -1160,7 +1173,7 @@ export function SundayExperience() {
                     type="button"
                     onClick={() => changeItem(editingItem.id, { portions: Math.min(12, editingItem.portions + 1) })}
                     className="tap-scale grid size-10 place-items-center rounded-full bg-surface-warm text-ink"
-                    aria-label="More portions"
+                    aria-label={t("sunday.morePortions")}
                   >
                     <Plus aria-hidden="true" size={16} />
                   </button>
@@ -1173,7 +1186,7 @@ export function SundayExperience() {
                 className="flex w-full items-center justify-between rounded-lg border border-border bg-white p-3"
               >
                 <span className="text-left">
-                  <span className="block text-sm font-medium text-ink">Leftover</span>
+                  <span className="block text-sm font-medium text-ink">{t("sunday.leftover")}</span>
                   <span className="block text-xs leading-5 text-muted">
                     Reusing an earlier meal — skipped in the shopping list.
                   </span>

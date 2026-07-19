@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Pencil } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { AvatarUploader } from "@/components/upload/AvatarUploader";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { createClient } from "@/lib/supabase/client";
 import { compressImageFile } from "@/lib/supabase/storage";
 
@@ -25,6 +26,7 @@ function initialsFor(name: string) {
 }
 
 export function ProfileEditor() {
+  const { t } = useLanguage();
   const [profile, setProfile] = useState<ProfileState>({ name: "TABLE" });
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
@@ -193,9 +195,9 @@ export function ProfileEditor() {
             className="tap-scale inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-surface-warm px-6 text-sm font-semibold text-ink"
           >
             <Pencil aria-hidden="true" size={16} />
-            Edit profile
+            {t("profileEditor.edit")}
           </button>
-          {saved ? <p className="text-sm font-medium text-muted">Profile updated.</p> : null}
+          {saved ? <p className="text-sm font-medium text-muted">{t("profileEditor.updated")}</p> : null}
         </div>
       </section>
     );
@@ -208,7 +210,7 @@ export function ProfileEditor() {
         <div className="space-y-5 text-center">
           <AvatarUploader fallbackUrl={profile.avatarUrl} name={draftName} onFileChange={setAvatarFile} />
           <label className="grid gap-2 text-left">
-            <span className="text-sm font-medium text-muted">Display name</span>
+            <span className="text-sm font-medium text-muted">{t("profileEditor.displayName")}</span>
             <input
               value={draftName}
               onChange={(event) => setDraftName(event.target.value)}
@@ -219,7 +221,7 @@ export function ProfileEditor() {
           </label>
           {email ? (
             <p className="text-left font-mono text-xs uppercase tracking-[0.16em] text-muted">
-              Signed in as {email}
+              {t("profileEditor.signedInAs", { email })}
             </p>
           ) : null}
         </div>
@@ -232,7 +234,7 @@ export function ProfileEditor() {
           className="tap-scale flex min-h-14 flex-1 items-center justify-center gap-2 rounded-pill bg-ink px-5 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-70"
         >
           <Check aria-hidden="true" size={18} />
-          {saving ? "Saving..." : "Save profile"}
+          {saving ? t("profileEditor.savingDots") : t("profileEditor.save")}
         </button>
         <button
           type="button"
@@ -240,7 +242,7 @@ export function ProfileEditor() {
           disabled={saving}
           className="tap-scale min-h-14 rounded-pill bg-surface-warm px-6 text-base font-semibold text-ink disabled:opacity-70"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
 

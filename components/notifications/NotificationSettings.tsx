@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Bell, BellOff, Check } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { createClient } from "@/lib/supabase/client";
 import {
   VAPID_PUBLIC_KEY,
@@ -16,6 +17,7 @@ import {
 type UiState = "loading" | "enabled" | "disabled" | "unsupported" | "needs-install";
 
 export function NotificationSettings() {
+  const { t } = useLanguage();
   const [state, setState] = useState<UiState>("loading");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -115,27 +117,19 @@ export function NotificationSettings() {
   return (
     <section className="liquid-island space-y-4 rounded-[28px] p-6">
       <div className="space-y-1">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Notifications</p>
-        <h2 className="font-serif text-2xl italic leading-tight text-ink">Get a ping for new cards</h2>
-        <p className="text-sm leading-6 text-muted">
-          Receive a phone notification when someone in your archive adds a new food card.
-        </p>
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">{t("notif.eyebrow")}</p>
+        <h2 className="font-serif text-2xl italic leading-tight text-ink">{t("notif.title")}</h2>
+        <p className="text-sm leading-6 text-muted">{t("notif.sub")}</p>
       </div>
 
-      {state === "loading" ? <p className="text-sm text-muted">Checking this device…</p> : null}
+      {state === "loading" ? <p className="text-sm text-muted">{t("notif.checking")}</p> : null}
 
       {state === "needs-install" ? (
-        <p className="rounded-lg bg-surface-warm px-4 py-3 text-sm leading-6 text-ink">
-          To receive food updates, add this app to your iPhone Home Screen, open it from the app icon,
-          then enable notifications.
-        </p>
+        <p className="rounded-lg bg-surface-warm px-4 py-3 text-sm leading-6 text-ink">{t("notif.needsInstall")}</p>
       ) : null}
 
       {state === "unsupported" ? (
-        <p className="rounded-lg bg-surface-warm px-4 py-3 text-sm leading-6 text-muted">
-          This browser doesn&apos;t support push notifications. Try opening TABLE in Chrome (Android) or an
-          installed app on iPhone.
-        </p>
+        <p className="rounded-lg bg-surface-warm px-4 py-3 text-sm leading-6 text-muted">{t("notif.unsupported")}</p>
       ) : null}
 
       {state === "disabled" ? (
@@ -146,7 +140,7 @@ export function NotificationSettings() {
           className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
         >
           <Bell aria-hidden="true" size={17} />
-          {busy ? "Enabling…" : "Enable notifications"}
+          {busy ? t("notif.enabling") : t("notif.enable")}
         </button>
       ) : null}
 
@@ -154,7 +148,7 @@ export function NotificationSettings() {
         <div className="space-y-3">
           <p className="flex items-center gap-2 text-sm font-medium text-ink">
             <Check aria-hidden="true" size={16} />
-            Notifications enabled on this device.
+            {t("notif.enabled")}
           </p>
           <button
             type="button"
@@ -163,7 +157,7 @@ export function NotificationSettings() {
             className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink disabled:cursor-wait disabled:opacity-70"
           >
             <BellOff aria-hidden="true" size={17} />
-            {busy ? "Disabling…" : "Disable notifications"}
+            {busy ? t("notif.disabling") : t("notif.disable")}
           </button>
         </div>
       ) : null}

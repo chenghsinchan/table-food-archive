@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Camera, ImagePlus, Trash2 } from "lucide-react";
 import type { PhotoSource } from "@/types/analytics";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type PhotoUploaderProps = {
   onFilesChange?: (files: File[]) => void;
@@ -11,6 +12,7 @@ type PhotoUploaderProps = {
 };
 
 export function PhotoUploader({ onFilesChange, onSourceChange }: PhotoUploaderProps) {
+  const { t } = useLanguage();
   const [files, setFiles] = useState<File[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -61,8 +63,8 @@ export function PhotoUploader({ onFilesChange, onSourceChange }: PhotoUploaderPr
               <ImagePlus aria-hidden="true" size={27} strokeWidth={1.8} />
             </div>
             <div className="space-y-2">
-              <h2 className="font-serif text-2xl italic">Choose the photograph</h2>
-              <p className="text-sm leading-6 text-muted">The image is the entry. Everything else can wait.</p>
+              <h2 className="font-serif text-2xl italic">{t("photo.title")}</h2>
+              <p className="text-sm leading-6 text-muted">{t("photo.sub")}</p>
             </div>
           </div>
         )}
@@ -75,7 +77,7 @@ export function PhotoUploader({ onFilesChange, onSourceChange }: PhotoUploaderPr
           className="tap-scale flex min-h-12 items-center justify-center gap-2 rounded-[16px] bg-ink px-4 text-sm font-semibold text-white"
         >
           <ImagePlus aria-hidden="true" size={17} />
-          Library
+          {t("photo.library")}
         </button>
         <button
           type="button"
@@ -83,7 +85,7 @@ export function PhotoUploader({ onFilesChange, onSourceChange }: PhotoUploaderPr
           className="tap-scale flex min-h-12 items-center justify-center gap-2 rounded-[16px] border border-border bg-white px-4 text-sm font-semibold text-ink"
         >
           <Camera aria-hidden="true" size={17} />
-          Camera
+          {t("photo.camera")}
         </button>
       </div>
       <input ref={inputRef} className="sr-only" type="file" accept="image/*" multiple onChange={(event) => event.target.files && addFiles(event.target.files, "library")} />

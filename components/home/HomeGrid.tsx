@@ -1,5 +1,8 @@
+"use client";
+
 import type { FoodEntry } from "@/types/food";
 import { FoodCard } from "@/components/entry/FoodCard";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { groupEntriesByMonth } from "@/lib/utils/entries";
 
 type HomeGridProps = {
@@ -12,6 +15,7 @@ type HomeGridProps = {
  * Frame numbers run across the whole archive, newest first.
  */
 export function HomeGrid({ entries, onSelect }: HomeGridProps) {
+  const { t } = useLanguage();
   const months = groupEntriesByMonth(entries);
   let frame = 0;
 
@@ -34,7 +38,7 @@ export function HomeGrid({ entries, onSelect }: HomeGridProps) {
               </header>
               {groupIndex === 0 ? (
                 <span className="mb-2 font-mono text-[9px] uppercase tracking-[0.2em] text-muted">
-                  {String(entries.length).padStart(2, "0")} frames
+                  {String(entries.length).padStart(2, "0")} {t("home.frames")}
                 </span>
               ) : null}
             </div>

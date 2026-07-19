@@ -1,6 +1,6 @@
 "use client";
 
-import { LanguageSelector } from "@/components/settings/LanguageSelector";
+import { LanguageDropdown } from "@/components/settings/LanguageDropdown";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 /** The app-language card on the Profile page. */
@@ -14,7 +14,7 @@ export function LanguageSettings() {
         <h2 className="font-serif text-2xl italic leading-tight text-ink">{t("settings.language.title")}</h2>
         <p className="text-sm leading-6 text-muted">{t("settings.language.sub")}</p>
       </div>
-      <LanguageSelector />
+      <LanguageDropdown />
     </section>
   );
 }

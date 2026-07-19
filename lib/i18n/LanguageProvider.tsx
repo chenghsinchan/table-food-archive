@@ -12,10 +12,13 @@ import {
 
 const STORAGE_KEY = "table-language-v1";
 
+type Vars = Record<string, string | number>;
+
 type LanguageContextValue = {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: TranslationKey) => string;
+  /** Translate a key; pass vars to fill `{name}` placeholders. */
+  t: (key: TranslationKey, vars?: Vars) => string;
 };
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -59,7 +62,11 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const t = useCallback(
-    (key: TranslationKey) => TRANSLATIONS[locale][key] ?? TRANSLATIONS[DEFAULT_LOCALE][key] ?? key,
+    (key: TranslationKey, vars?: Vars) => {
+      const template = TRANSLATIONS[locale][key] ?? TRANSLATIONS[DEFAULT_LOCALE][key] ?? key;
+      if (!vars) return template;
+      return template.replace(/\{(\w+)\}/g, (whole, name) => (name in vars ? String(vars[name]) : whole));
+    },
     [locale]
   );
 

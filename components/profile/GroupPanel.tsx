@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { Check, Pencil, Plus, UserMinus, UserPlus, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { useGroups } from "@/lib/groups/GroupProvider";
 import { MAX_GROUPS_PER_USER, MAX_MEMBERS_PER_GROUP } from "@/lib/groups/constants";
 import { cn } from "@/lib/utils/cn";
 
 export function GroupPanel() {
+  const { t } = useLanguage();
   const {
     groups,
     activeGroup,
@@ -143,7 +145,7 @@ export function GroupPanel() {
   if (status === "loading") {
     return (
       <section className="liquid-island rounded-[28px] p-6">
-        <p className="text-center text-sm text-muted">Loading your archive…</p>
+        <p className="text-center text-sm text-muted">{t("group.loading")}</p>
       </section>
     );
   }
@@ -153,17 +155,17 @@ export function GroupPanel() {
       {editingGroup && activeGroup ? (
         <div className="space-y-5">
           <form onSubmit={handleUpdateGroup} className="space-y-3">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Edit archive</p>
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">{t("group.edit")}</p>
             <input
               value={editName}
               onChange={(event) => setEditName(event.target.value)}
-              placeholder="Archive name"
+              placeholder={t("group.name.placeholder")}
               className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
             />
             <input
               value={editDescription}
               onChange={(event) => setEditDescription(event.target.value)}
-              placeholder="Intro / description (optional)"
+              placeholder={t("group.desc.placeholder")}
               className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
             />
             <div className="flex gap-2">
@@ -173,14 +175,14 @@ export function GroupPanel() {
                 className="tap-scale flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
               >
                 <Check aria-hidden="true" size={17} />
-                {editBusy ? "Saving…" : "Save archive"}
+                {editBusy ? t("group.savingDots") : t("group.save")}
               </button>
               <button
                 type="button"
                 onClick={() => setEditingGroup(false)}
                 className="tap-scale min-h-12 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
               >
-                Done
+                {t("common.done")}
               </button>
             </div>
             {editError ? <p className="text-sm leading-6 text-accent">{editError}</p> : null}
@@ -188,7 +190,7 @@ export function GroupPanel() {
 
           {/* ---- members: remove ---- */}
           <div className="space-y-2 border-t border-border pt-4">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Members</p>
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">{t("group.members")}</p>
             <ul className="space-y-2">
               {members.map((member) => {
                 const isSelf = member.userId === currentUserId;
@@ -203,10 +205,10 @@ export function GroupPanel() {
                     />
                     <span className="flex-1 truncate text-sm font-medium text-ink">
                       {member.name}
-                      {isSelf ? <span className="text-muted"> (you)</span> : null}
+                      {isSelf ? <span className="text-muted"> {t("group.you")}</span> : null}
                     </span>
                     {member.role === "owner" ? (
-                      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Owner</span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">{t("group.owner")}</span>
                     ) : null}
                     <button
                       type="button"
@@ -215,10 +217,10 @@ export function GroupPanel() {
                         "tap-scale inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition",
                         confirmRemoveId === member.userId ? "bg-ink text-white" : "text-muted hover:text-ink"
                       )}
-                      aria-label={isSelf ? "Leave archive" : `Remove ${member.name}`}
+                      aria-label={isSelf ? t("group.leave") : t("group.remove")}
                     >
                       <UserMinus aria-hidden="true" size={14} />
-                      {confirmRemoveId === member.userId ? (isSelf ? "Leave?" : "Remove?") : isSelf ? "Leave" : "Remove"}
+                      {confirmRemoveId === member.userId ? (isSelf ? t("group.leaveConfirm") : t("group.removeConfirm")) : isSelf ? t("group.leave") : t("group.remove")}
                     </button>
                   </li>
                 );
@@ -230,11 +232,11 @@ export function GroupPanel() {
           {groupIsFull ? (
             <p className="flex items-center gap-2 text-sm text-muted">
               <Users aria-hidden="true" size={15} />
-              This archive already has {MAX_MEMBERS_PER_GROUP} members.
+              {t("group.full", { n: MAX_MEMBERS_PER_GROUP })}
             </p>
           ) : (
             <div className="space-y-2">
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Add member</p>
+              <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">{t("group.addMember")}</p>
               <div className="flex gap-2">
                 <input
                   type="email"
@@ -246,7 +248,7 @@ export function GroupPanel() {
                       handleAddMember();
                     }
                   }}
-                  placeholder="friend@gmail.com"
+                  placeholder={t("group.email.placeholder")}
                   className="min-h-12 min-w-0 flex-1 rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
                 />
                 <button
@@ -256,12 +258,10 @@ export function GroupPanel() {
                   className="tap-scale flex min-h-12 items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
                 >
                   <UserPlus aria-hidden="true" size={15} />
-                  Add
+                  {t("common.add")}
                 </button>
               </div>
-              <p className="text-xs leading-5 text-muted">
-                They need a TABLE account first — invite them to TABLE below, then add them here.
-              </p>
+              <p className="text-xs leading-5 text-muted">{t("group.addMember.help")}</p>
             </div>
           )}
           {memberNotice ? <p className="text-sm font-medium text-muted">{memberNotice}</p> : null}
@@ -271,8 +271,8 @@ export function GroupPanel() {
         <>
           <header className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Current archive</p>
-              <h2 className="font-serif text-3xl italic leading-tight text-ink">{activeGroup?.name ?? "No archive yet"}</h2>
+              <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">{t("group.current")}</p>
+              <h2 className="font-serif text-3xl italic leading-tight text-ink">{activeGroup?.name ?? t("group.none")}</h2>
               {activeGroup?.description ? <p className="text-sm leading-6 text-muted">{activeGroup.description}</p> : null}
             </div>
             {activeGroup ? (
@@ -280,17 +280,17 @@ export function GroupPanel() {
                 type="button"
                 onClick={startEditGroup}
                 className="tap-scale inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface-warm px-3 py-2 text-xs font-semibold text-ink"
-                aria-label="Edit archive"
+                aria-label={t("group.edit")}
               >
                 <Pencil aria-hidden="true" size={14} />
-                Edit
+                {t("common.edit")}
               </button>
             ) : null}
           </header>
 
           {members.length ? (
             <div className="space-y-3">
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Members</p>
+              <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">{t("group.members")}</p>
               <ul className="space-y-2">
                 {members.map((member) => {
                   const isSelf = member.userId === currentUserId;
@@ -305,10 +305,10 @@ export function GroupPanel() {
                       />
                       <span className="flex-1 truncate text-sm font-medium text-ink">
                         {member.name}
-                        {isSelf ? <span className="text-muted"> (you)</span> : null}
+                        {isSelf ? <span className="text-muted"> {t("group.you")}</span> : null}
                       </span>
                       {member.role === "owner" ? (
-                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Owner</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">{t("group.owner")}</span>
                       ) : null}
                     </li>
                   );
@@ -321,7 +321,7 @@ export function GroupPanel() {
 
       {groups.length > 1 ? (
         <div className="space-y-2">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Switch archive</p>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">{t("group.switch")}</p>
           <div className="flex flex-wrap gap-2">
             {groups.map((group) => (
               <button
@@ -344,20 +344,20 @@ export function GroupPanel() {
 
       {/* ---- Create an archive ---- */}
       <div className="space-y-3 border-t border-border pt-5">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Create an archive</p>
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">{t("group.create")}</p>
         {canCreateGroup ? (
           showCreate ? (
             <form onSubmit={handleCreate} className="space-y-3">
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Archive name (e.g. Dinner Club)"
+                placeholder={t("group.create.name")}
                 className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
               />
               <input
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Description (optional)"
+                placeholder={t("group.create.desc")}
                 className="min-h-12 w-full rounded-lg border border-border bg-white px-4 text-base outline-none transition focus:border-accent"
               />
               <div className="flex gap-2">
@@ -367,7 +367,7 @@ export function GroupPanel() {
                   className="tap-scale flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
                 >
                   <Check aria-hidden="true" size={17} />
-                  {busy ? "Creating…" : "Create archive"}
+                  {busy ? t("group.creating") : t("group.createSubmit")}
                 </button>
                 <button
                   type="button"
@@ -377,7 +377,7 @@ export function GroupPanel() {
                   }}
                   className="tap-scale min-h-12 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </div>
             </form>
@@ -388,13 +388,13 @@ export function GroupPanel() {
               className="tap-scale flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-surface-warm px-5 text-sm font-semibold text-ink"
             >
               <Plus aria-hidden="true" size={17} />
-              Create an archive
+              {t("group.create")}
             </button>
           )
         ) : (
           <p className="flex items-center gap-2 text-sm text-muted">
             <Users aria-hidden="true" size={15} />
-            You can only have up to {MAX_GROUPS_PER_USER} archives for now.
+            {t("group.maxArchives", { n: MAX_GROUPS_PER_USER })}
           </p>
         )}
         {error ? <p className="text-sm leading-6 text-accent">{error}</p> : null}

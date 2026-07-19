@@ -11,9 +11,11 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { GridSkeleton } from "@/components/ui/EntrySkeletons";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { useFoodEntries } from "@/lib/entries/EntryCacheProvider";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { searchEntries } from "@/lib/utils/entries";
 
 export function HomeExperience() {
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -60,7 +62,7 @@ export function HomeExperience() {
             onClick={() => setSearchOpen((open) => !open)}
             className="tap-scale grid size-10 place-items-center rounded-full text-muted hover:text-ink"
             aria-expanded={searchOpen}
-            aria-label="Search the archive"
+            aria-label={t("home.search.aria")}
           >
             <Search size={17} strokeWidth={1.7} />
           </button>
@@ -72,11 +74,11 @@ export function HomeExperience() {
           you scroll; in-flow when opened from the header icon. */}
       {isScrolled ? (
         <div className="fixed left-1/2 top-3 z-30 w-[292px] -translate-x-1/2">
-          <SearchBar value={query} onChange={setQuery} placeholder="Warm evenings, relaxed, London." />
+          <SearchBar value={query} onChange={setQuery} placeholder={t("home.search.placeholder")} />
         </div>
       ) : searchOpen || query ? (
         <div className="mx-auto mb-5 w-[292px]">
-          <SearchBar value={query} onChange={setQuery} placeholder="Warm evenings, relaxed, London." autoFocus />
+          <SearchBar value={query} onChange={setQuery} placeholder={t("home.search.placeholder")} autoFocus />
         </div>
       ) : null}
 
@@ -89,8 +91,8 @@ export function HomeExperience() {
         />
       ) : query ? (
         <EmptyState
-          title="No matches"
-          description="Nothing here fits that search — try another word."
+          title={t("home.nomatch.title")}
+          description={t("home.nomatch.body")}
         />
       ) : (
         <FirstDishEmptyState message={error || undefined} />

@@ -5,6 +5,8 @@ import { ImagePlus, Mic, Sparkles, Trash2, X } from "lucide-react";
 import type { Atmosphere, EffortLevel, FoodEntry, FoodPhoto, MoodKey } from "@/types/food";
 import { AtmosphereField } from "@/components/entry/AtmosphereField";
 import { PhotoCarousel } from "@/components/entry/PhotoCarousel";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { createClient } from "@/lib/supabase/client";
 import { deleteEntryFromSupabase, saveEntryToSupabase } from "@/lib/supabase/save-entry";
 import { photoFromUpload, uploadFoodPhotos } from "@/lib/supabase/storage";
@@ -16,17 +18,12 @@ import { cn } from "@/lib/utils/cn";
 import { formatLongDate } from "@/lib/utils/date";
 import { entryLocation } from "@/lib/utils/entries";
 
-const PROMPTS = [
-  "Anything worth keeping?",
-  "What was happening around this meal?",
-  "Why might you return to this?",
-  "Leave a fragment…"
-];
+const PROMPT_KEYS: TranslationKey[] = ["entry.prompt.0", "entry.prompt.1", "entry.prompt.2", "entry.prompt.3"];
 
-const EFFORTS: Array<{ key: EffortLevel; label: string }> = [
-  { key: "easy", label: "Easy" },
-  { key: "moderate", label: "Moderate" },
-  { key: "involved", label: "Involved" }
+const EFFORTS: Array<{ key: EffortLevel; labelKey: TranslationKey }> = [
+  { key: "easy", labelKey: "entry.effort.easy" },
+  { key: "moderate", labelKey: "entry.effort.moderate" },
+  { key: "involved", labelKey: "entry.effort.involved" }
 ];
 
 type FoodEntryModalProps = {
@@ -55,6 +52,7 @@ type Draft = {
 };
 
 export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwipeUp }: FoodEntryModalProps) {
+  const { t, locale } = useLanguage();
   const sheetRef = useRef<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const gesture = useRef({ y: 0, active: false });
@@ -67,7 +65,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
   const [error, setError] = useState("");
   const [detectError, setDetectError] = useState("");
   const [draft, setDraft] = useState<Draft>(() => draftFromEntry(entry));
-  const [promptIndex] = useState(() => Math.floor(Math.random() * PROMPTS.length));
+  const [promptIndex] = useState(() => Math.floor(Math.random() * PROMPT_KEYS.length));
 
   const mood = moodByKey(editing ? draft.mood : entry.mood);
   const moodIsSet = editing ? Boolean(draft.mood) : hasMood(entry);
@@ -148,7 +146,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
     const photo = draft.photos[0] ?? entry.photos[0];
 
     if (!photo) {
-      setDetectError("Add a photo first — the AI reads ingredients from it.");
+      setDetectError(t("entry.detect.needPhoto"));
       return;
     }
 
@@ -159,12 +157,12 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
       const response = await fetch("/api/ingredients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: photo.imageUrl })
+        body: JSON.stringify({ imageUrl: photo.imageUrl, locale })
       });
       const data = (await response.json().catch(() => ({}))) as { ingredients?: string; error?: string };
 
       if (!response.ok || !data.ingredients) {
-        throw new Error(data.error || "Could not read this photo.");
+        throw new Error(data.error || t("entry.detect.failed"));
       }
 
       setDraft((current) => ({
@@ -174,7 +172,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
           : data.ingredients ?? ""
       }));
     } catch (caught) {
-      setDetectError(caught instanceof Error ? caught.message : "Could not read this photo.");
+      setDetectError(caught instanceof Error ? caught.message : t("entry.detect.failed"));
     } finally {
       setDetecting(false);
     }
@@ -297,7 +295,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
             type="button"
             onClick={() => (editing ? setEditing(false) : onClose())}
             className="absolute right-4 top-4 grid size-[30px] place-items-center rounded-full bg-[rgba(12,10,9,0.45)] text-white"
-            aria-label={editing ? "Cancel editing" : "Close memory"}
+            aria-label={editing ? t("entry.cancelEditing") : t("entry.close")}
           >
             <X size={16} />
           </button>
@@ -312,11 +310,11 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
           /* ============================ VIEW ============================ */
           <div className="flex flex-col gap-[18px] px-[22px] py-6">
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-              <Meta label="Date">{formatLongDate(entry.entryDate)}</Meta>
-              <Meta label="Place">{entry.placeLabel || entryLocation(entry)}</Meta>
-              {entry.weather ? <Meta label="Weather · auto">{entry.weather}</Meta> : null}
+              <Meta label={t("entry.meta.date")}>{formatLongDate(entry.entryDate)}</Meta>
+              <Meta label={t("entry.meta.place")}>{entry.placeLabel || entryLocation(entry)}</Meta>
+              {entry.weather ? <Meta label={t("entry.meta.weather")}>{entry.weather}</Meta> : null}
               {entry.dish?.timesMade && entry.dish.timesMade > 1 ? (
-                <Meta label="Made">{entry.dish.timesMade} times</Meta>
+                <Meta label={t("entry.meta.made")}>{t("entry.meta.madeTimes", { n: entry.dish.timesMade })}</Meta>
               ) : null}
             </div>
 
@@ -326,7 +324,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
 
             {entry.notes ? (
               <div>
-                <SectionLabel>Optional words</SectionLabel>
+                <SectionLabel>{t("entry.optionalWords")}</SectionLabel>
                 <blockquote className="mt-2 font-serif text-[18px] italic leading-[1.5] text-ink">
                   “{entry.notes}”
                 </blockquote>
@@ -358,7 +356,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
 
               {ingredientLines.length ? (
                 <div>
-                  <SectionLabel>Ingredients</SectionLabel>
+                  <SectionLabel>{t("entry.ingredients")}</SectionLabel>
                   <ul className="mt-2 font-mono text-[11px] text-ink">
                     {ingredientLines.map((line, index) => (
                       <li key={index} className="border-t border-dashed border-[#dcd7cc] py-1.5 first:border-t-0">
@@ -371,7 +369,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
 
               {entry.recipe ? (
                 <div>
-                  <SectionLabel>How we made it</SectionLabel>
+                  <SectionLabel>{t("entry.method")}</SectionLabel>
                   <p className="mt-2 whitespace-pre-line text-[13.5px] leading-6 text-[#4a453d]">{entry.recipe}</p>
                 </div>
               ) : null}
@@ -384,7 +382,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                 className="tap-scale flex-1 rounded-full border py-3 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.16em]"
                 style={{ borderColor: accentBg, color: moodIsSet ? mood.bg : "#1a1817" }}
               >
-                Edit entry
+                {t("entry.editEntry")}
               </button>
               <button
                 type="button"
@@ -392,7 +390,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                 className="tap-scale flex-1 rounded-full py-3 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.16em]"
                 style={{ background: accentBg, color: accentFg }}
               >
-                Done
+                {t("common.done")}
               </button>
             </div>
           </div>
@@ -400,7 +398,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
           /* ============================ EDIT ============================ */
           <div className="flex flex-col gap-5 px-[22px] py-6">
             <div>
-              <SectionLabel>Mood</SectionLabel>
+              <SectionLabel>{t("entry.mood")}</SectionLabel>
               <div className="mt-2 flex items-center gap-3">
                 {MOODS.map((option) => (
                   <button
@@ -412,7 +410,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                         mood: current.mood === option.key ? undefined : option.key
                       }))
                     }
-                    aria-label={`Mood: ${option.name}`}
+                    aria-label={t("entry.moodNamed", { name: option.name })}
                     aria-pressed={draft.mood === option.key}
                     className="size-[26px] rounded-full"
                     style={{
@@ -424,7 +422,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
               </div>
             </div>
 
-            <Field label="Name">
+            <Field label={t("entry.name")}>
               <input
                 value={draft.title}
                 onChange={(event) => setDraft({ ...draft, title: event.target.value })}
@@ -433,16 +431,16 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
             </Field>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Place"><input value={draft.placeLabel} onChange={(event) => setDraft({ ...draft, placeLabel: event.target.value })} placeholder="At home · Angel" className="entry-input" /></Field>
-              <Field label="City"><input value={draft.city} onChange={(event) => setDraft({ ...draft, city: event.target.value })} className="entry-input" /></Field>
+              <Field label={t("entry.place")}><input value={draft.placeLabel} onChange={(event) => setDraft({ ...draft, placeLabel: event.target.value })} placeholder={t("add.place.placeholder")} className="entry-input" /></Field>
+              <Field label={t("entry.city")}><input value={draft.city} onChange={(event) => setDraft({ ...draft, city: event.target.value })} className="entry-input" /></Field>
             </div>
-            <Field label="Weather · auto">
+            <Field label={t("entry.weather")}>
               <input value={draft.weather} onChange={(event) => setDraft({ ...draft, weather: event.target.value })} placeholder="11°C · Rain · Evening" className="entry-input" />
-              <p className="mt-1 font-serif text-[12px] italic text-muted">Filled in from the date and place — correct it if it&apos;s off.</p>
+              <p className="mt-1 font-serif text-[12px] italic text-muted">{t("entry.weather.help")}</p>
             </Field>
 
             <div>
-              <SectionLabel>Atmosphere</SectionLabel>
+              <SectionLabel>{t("entry.atmosphere")}</SectionLabel>
               <div className="mt-2">
                 <AtmosphereField
                   value={draft.atmosphere}
@@ -454,12 +452,12 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
 
             <div>
               <div className="flex items-center justify-between">
-                <SectionLabel>Optional words</SectionLabel>
+                <SectionLabel>{t("entry.optionalWords")}</SectionLabel>
                 <button
                   type="button"
                   onClick={() => setRecording((current) => !current)}
                   aria-pressed={recording}
-                  aria-label="Voice note"
+                  aria-label={t("entry.voiceNote")}
                   className={cn(
                     "grid size-8 place-items-center rounded-full border border-[#dcd7cc] text-muted transition",
                     recording && "border-red-600 bg-red-600 text-white"
@@ -472,13 +470,13 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                 rows={2}
                 value={draft.notes}
                 onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
-                placeholder={PROMPTS[promptIndex]}
+                placeholder={t(PROMPT_KEYS[promptIndex])}
                 className="entry-input mt-2 py-2 font-serif text-[15px] italic"
               />
             </div>
 
             <div>
-              <SectionLabel>Effort</SectionLabel>
+              <SectionLabel>{t("entry.effort")}</SectionLabel>
               <div className="mt-2 grid grid-cols-3 overflow-hidden rounded-full border border-[#dcd7cc]">
                 {EFFORTS.map((option) => (
                   <button
@@ -497,14 +495,14 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                         : { background: "#efece4", color: "#6d675c" }
                     }
                   >
-                    {option.label}
+                    {t(option.labelKey)}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <SectionLabel>Tags</SectionLabel>
+              <SectionLabel>{t("entry.tags")}</SectionLabel>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {tagChoices.map((tag) => {
                   const active = draft.tags.some((candidate) => canonicalTagKey(candidate) === canonicalTagKey(tag));
@@ -536,22 +534,22 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                       addCustomTag();
                     }
                   }}
-                  placeholder="Add tag"
+                  placeholder={t("entry.tags.add")}
                   className="entry-input flex-1"
                 />
                 <button type="button" onClick={addCustomTag} className="tap-scale rounded-full bg-[#efece4] px-4 font-mono text-[9px] uppercase tracking-[0.14em] text-ink">
-                  Add
+                  {t("common.add")}
                 </button>
               </div>
             </div>
 
             <div>
-              <SectionLabel>Ingredients</SectionLabel>
+              <SectionLabel>{t("entry.ingredients")}</SectionLabel>
               <textarea
                 rows={4}
                 value={draft.ingredients}
                 onChange={(event) => setDraft({ ...draft, ingredients: event.target.value })}
-                placeholder={"One per line\n300g squid\n2 lemons"}
+                placeholder={t("entry.ingredients.placeholder")}
                 className="entry-input mt-2 py-2 font-mono text-[12px]"
               />
               <button
@@ -561,17 +559,17 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                 className="tap-scale mt-2 inline-flex items-center gap-2 rounded-full bg-[#efece4] px-4 py-2 font-mono text-[9px] uppercase tracking-[0.14em] text-ink disabled:cursor-wait disabled:opacity-60"
               >
                 <Sparkles size={13} />
-                {detecting ? "Reading photo…" : "Detect from photo"}
+                {detecting ? t("entry.detecting") : t("entry.detect")}
               </button>
               {detectError ? <p className="mt-1.5 text-[12px] leading-5 text-red-700">{detectError}</p> : null}
             </div>
 
-            <Field label="How we made it">
+            <Field label={t("entry.method")}>
               <textarea rows={5} value={draft.recipe} onChange={(event) => setDraft({ ...draft, recipe: event.target.value })} className="entry-input py-2 text-[13px]" />
             </Field>
 
             <div>
-              <SectionLabel>Photographs</SectionLabel>
+              <SectionLabel>{t("entry.photographs")}</SectionLabel>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {draft.photos.map((photo) => (
                   <div key={photo.id} className="relative overflow-hidden rounded-[10px]">
@@ -580,7 +578,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                       type="button"
                       onClick={() => setDraft((current) => ({ ...current, photos: current.photos.filter((item) => item.id !== photo.id) }))}
                       className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-white/85 text-ink"
-                      aria-label="Remove photo"
+                      aria-label={t("entry.removePhoto")}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -593,7 +591,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                       type="button"
                       onClick={() => setDraft((current) => ({ ...current, files: current.files.filter((item) => item !== file) }))}
                       className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-white/85 text-ink"
-                      aria-label="Remove new photo"
+                      aria-label={t("entry.removePhoto")}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -603,7 +601,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="tap-scale grid aspect-[4/5] place-items-center rounded-[10px] border border-dashed border-[#dcd7cc] text-muted"
-                  aria-label="Add photos"
+                  aria-label={t("entry.addPhotos")}
                 >
                   <ImagePlus size={20} />
                 </button>
@@ -617,7 +615,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
               disabled={deleting}
               className={cn("inline-flex items-center gap-2 text-[13px]", confirmDelete ? "text-red-700" : "text-muted")}
             >
-              <Trash2 size={15} /> {confirmDelete ? "Tap again to delete this memory" : "Delete memory"}
+              <Trash2 size={15} /> {confirmDelete ? t("entry.deleteConfirm") : t("entry.delete")}
             </button>
 
             <div className="flex gap-2.5">
@@ -626,7 +624,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                 onClick={() => setEditing(false)}
                 className="tap-scale flex-1 rounded-full border border-[#dcd7cc] py-3 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-ink"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -635,7 +633,7 @@ export function FoodEntryModal({ entry, onClose, onUpdate, onDelete, closeOnSwip
                 className="tap-scale flex-1 rounded-full py-3 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.16em] disabled:cursor-wait disabled:opacity-70"
                 style={{ background: accentBg, color: accentFg }}
               >
-                {saving ? "Saving…" : "Save entry"}
+                {saving ? t("common.saving") : t("entry.saveEntry")}
               </button>
             </div>
 

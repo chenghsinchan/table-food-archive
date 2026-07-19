@@ -12,13 +12,26 @@ const GEMINI_MODEL = "gemini-flash-lite-latest";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
-const PROMPT = `You are helping a home-cooking app build a shopping list.
+// The AI writes the ingredient list back in the user's app language. Keep the
+// NOT_FOOD sentinel in English so the server can detect it regardless of locale.
+const OUTPUT_LANGUAGES: Record<string, string> = {
+  en: "English",
+  "zh-TW": "Traditional Chinese (Taiwan)",
+  lt: "Lithuanian"
+};
+
+function buildPrompt(locale: string) {
+  const language = OUTPUT_LANGUAGES[locale] ?? OUTPUT_LANGUAGES.en;
+
+  return `You are helping a home-cooking app build a shopping list.
 Look at this photo of a dish and list the ingredients likely needed to cook it.
 Rules:
+- Write every ingredient in ${language}.
 - One ingredient per line, with a rough quantity for 2 portions (e.g. "300g squid", "2 eggs", "olive oil").
 - Plain text only: no numbering, no bullets, no headings, no commentary.
 - 5 to 12 lines.
 - If the photo does not show food, reply with exactly: NOT_FOOD`;
+}
 
 function isAllowedImageUrl(value: string) {
   try {
@@ -56,8 +69,9 @@ export async function POST(request: Request) {
     }
   }
 
-  const body = (await request.json().catch(() => null)) as { imageUrl?: string } | null;
+  const body = (await request.json().catch(() => null)) as { imageUrl?: string; locale?: string } | null;
   const imageUrl = body?.imageUrl;
+  const prompt = buildPrompt(body?.locale ?? "en");
 
   if (!imageUrl || !isAllowedImageUrl(imageUrl)) {
     return NextResponse.json({ error: "Send a valid photo URL from the archive." }, { status: 400 });
@@ -89,7 +103,7 @@ export async function POST(request: Request) {
         {
           parts: [
             { inline_data: { mime_type: mimeType, data: Buffer.from(imageBuffer).toString("base64") } },
-            { text: PROMPT }
+            { text: prompt }
           ]
         }
       ],
